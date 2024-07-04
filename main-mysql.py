@@ -8,9 +8,7 @@ import logging
 import re
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "postgresql://postgres:password@localhost/postgres"
-)
+app.config["SQLALCHEMY_DATABASE_URI"] = "mysql+pymysql://root:@localhost/test"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
@@ -79,7 +77,9 @@ def preprocess_compositions_in_db():
 
 def match_compositions(df):
     # Preprocess compositions in the database, #essential to ensure proper matching of compositions
+    print("check 1")
     preprocess_compositions_in_db()
+    print("check 2")
 
     matched_compositions = []
     unmatched_compositions = []

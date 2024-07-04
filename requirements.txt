@@ -3,3 +3,4 @@ pandas
 flask_sqlalchemy
 fuzzywuzzy
 openpyxl
+logging

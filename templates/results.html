@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results</title>
+</head>
+<body>
+    <h1>Unmatched Compositions</h1>
+    <ul>
+        {% for composition in unmatched_compositions %}
+            <li>{{ composition }}</li>
+        {% endfor %}
+    </ul>
+    <a href="/download-modified-file" download><button>Download Excel File</button></a>
+</body>
+</html>

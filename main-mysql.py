@@ -68,6 +68,7 @@ def preprocess_compositions_in_db():
                 "UPDATE Compositions SET compositions = preprocess_composition(compositions)"
             )
         )
+        print("Hey")
         db.session.commit()
         server_logger.info("Compositions preprocessed in the database")
     except Exception as e:

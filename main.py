@@ -29,19 +29,21 @@ unmatched_compositions_logger = logging.getLogger("unmatched_compositions")
 setup_logging("rough_compositions.log", "rough_compositions")
 rough_compositions_logger = logging.getLogger("rough_compositions")
 
+setup_logging("parsing_composition.log", "parse_composition")
+parse_composition_logger = logging.getLogger("parse_composition")
+
 
 # Define Composition model
 class Compositions(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content_code = db.Column(db.String(10), nullable=True)
     compositions = db.Column(db.String(255), nullable=False)
-    dosage_form = db.Column(db.String(50), default="")
-    strength = db.Column(db.String(50), default="")
-    packing_unit = db.Column(db.String(10), default="")
-    rate_cap = db.Column(db.Numeric(10, 2), default=0.00)
-    remarks = db.Column(db.String(255), default="")
-    total_suppliers = db.Column(db.Integer, default=0)
-    above_price_cap = db.Column(db.Integer, default=0)
+    compositions_striped = db.Column(db.String(255), nullable=True)
+    dosage_form = db.Column(db.String(50), default="", nullable=True)
+
+
+with app.app_context():
+    db.create_all()
 
 
 # Data Preprocessing
@@ -67,18 +69,70 @@ def preprocess_compositions_in_db():
         # Execute SQL command to preprocess compositions using the SQL function
         db.session.execute(
             text(
-                "UPDATE Compositions SET compositions = preprocess_composition(compositions)"
+                "UPDATE Compositions SET compositions_striped = preprocess_composition(compositions);"
             )
         )
         db.session.commit()
-        server_logger.info("Compositions preprocessed in the database")
+        server_logger.info(
+            "Compositions preprocessed and stored in compositions_striped in the database"
+        )
     except Exception as e:
         db.session.rollback()
         server_logger.error(f"Error preprocessing compositions in the database: {e}")
 
 
+def parse_composition(composition):
+    """
+    Parse the composition into a list of tuples (molecule, unit).
+    If the molecule does not have a unit, use None as the unit.
+    """
+    try:
+        # Match molecule and unit pairs
+        pattern = r"([\w\s]+)(?:\(([\d.\/%\w]+)\))?"
+        molecules = re.findall(pattern, composition)
+        parsed_molecules = []
+
+        for name, unit in molecules:
+            name = name.strip()
+            unit = unit if unit else None
+            parsed_molecules.append((name, unit))
+
+        return sorted(parsed_molecules)
+    except Exception as e:
+        parse_composition_logger.error(
+            f"Error parsing composition: {composition}. Error: {e}"
+        )
+        return []
+
+
+def is_match(composition1, composition2):
+    """
+    Custom comparison function to ensure both molecule names and units match.
+    """
+
+    # Parsed 1 =  User entered composition
+    parsed1 = parse_composition(composition1)
+
+    # Parsed 2 = DB Composition
+    parsed2 = parse_composition(composition2)
+
+    if parsed1 == parsed2:
+        parse_composition_logger.info(f"Matched: User: {parsed1} with DB: {parsed2}")
+    else:
+        parse_composition_logger.error(
+            f"Not a Match: User: {parsed1} with DB: {parsed2}"
+        )
+
+    return parsed1 == parsed2
+
+
 def match_compositions(df):
-    # Preprocess compositions in the database, #essential to ensure proper matching of compositions
+    try:
+        df["compositions"] = preprocess_data(df["compositions"])
+    except Exception as e:
+        server_logger.error(f"Some error within the file", e)
+
+    # Later have to remove this code, only preprocess in the db if we add new compositions
     preprocess_compositions_in_db()
 
     matched_compositions = []
@@ -87,44 +141,59 @@ def match_compositions(df):
 
     for index, row in df.iterrows():
         composition = row["compositions"]
+        striped_composition = composition.replace(
+            " ", ""
+        )  # Strip spaces for comparison
 
         try:
-            # Fetch compositions from the database ordered by Levenshtein distance
             query = (
                 db.session.query(Compositions)
-                .order_by(func.levenshtein(Compositions.compositions, composition))
+                .order_by(
+                    func.levenshtein(
+                        Compositions.compositions_striped, striped_composition
+                    )
+                )
                 .limit(20)
             )
             result = query.all()
 
-            # Compare fetched compositions with composition from Excel file
             best_match = None
             max_similarity = 0
+            similar_items_score = []
+            # array for storing similar composition and its score
             for res in result:
-                similarity = fuzz.token_sort_ratio(composition, res.compositions)
-                rough_compositions_logger.info(
-                    f"User-Inputted: {composition}; DB Composition: {res.compositions} with similarity score: {similarity}"
+                db_composition_striped = res.compositions_striped
+                similarity = fuzz.token_sort_ratio(
+                    striped_composition, db_composition_striped
                 )
-                if similarity > max_similarity:
+                rough_compositions_logger.info(
+                    f"User-Inputted: {composition};  DB Composition: {res.compositions};  with similarity score: {similarity}"
+                )
+                rough_compositions_logger.info(
+                    f"Striped User-Input: {striped_composition}; DB Stripped Composition: {db_composition_striped}; with similarity score: {similarity} \n"
+                )
+
+                if similarity > max_similarity and is_match(
+                    striped_composition, db_composition_striped
+                ):
                     max_similarity = similarity
                     best_match = res.compositions
-            rough_compositions_logger.info(" ")
 
-            if (
-                best_match and max_similarity > 98
-            ):  # Adjust similarity threshold as needed
+                similar_items_score.append((composition, similarity))
+                
+
+            if best_match and max_similarity > 98:
                 matched_compositions.append(best_match)
                 modified_df.loc[index] = row
                 modified_df.at[index, "compositions"] = best_match
 
-                # Log the match including both user-entered and matched compositions
                 composition_match_logger.info(
                     f"User-entered composition: {composition}, Matched composition: {best_match}, Match score: {max_similarity}"
                 )
             else:
                 unmatched_compositions.append(composition)
                 unmatched_compositions_logger.info(
-                    f"Unmatched composition: {composition}, Similarity percentage: {max_similarity if max_similarity is not None else 0}"
+                    f"Unmatched composition: {composition}, Similarity percentage: {similarity}"
                 )
         except Exception as e:
             server_logger.error(f"Error matching compositions: {e}")
@@ -151,9 +220,6 @@ def match_compositions_api():
         server_logger.error(f"Error reading Excel file: {e}")
         return jsonify({"error": "Error reading Excel file"})
 
-    # Preprocess compositions directly from DataFrame
-    df["compositions"] = preprocess_data(df["compositions"])
-
     try:
         matched_compositions, unmatched_compositions, modified_df = match_compositions(
             df
@@ -166,7 +232,9 @@ def match_compositions_api():
     modified_df.to_excel(modified_file_path, index=False)
 
     return render_template(
-        "results.html", unmatched_compositions=unmatched_compositions
+        "results.html",
+        unmatched_compositions=unmatched_compositions,
+        matched_compositions=matched_compositions,
     )
 
 

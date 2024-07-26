@@ -1,24 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Upload</title>
-</head>
-<body>
-    <div class="container">
-        <div><h1>Upload a file</h1></div>
-        <form class="form" action="/match-compositions" method="post" enctype="multipart/form-data">
-            <div class="file-upload-wrapper" data-text="Select your file!">
-                <input
-                    name="file"
-                    type="file"
-                    class="file-upload-field"
-                    value=""
-                />
-            </div>
-            <input type="submit" value="Upload" />
-        </form>
-    </div>
-</body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>File Upload</title>
+	</head>
+	<body>
+		<div class="container">
+			<div><h1>Upload a file</h1></div>
+			<p>Note: Please write the compositions using "+" or "|".</p>
+			<p>
+				The System expects the molecules to be joined using "+" or "|". Also the excel file should have the extension of "xlsx"
+			</p>
+
+			<p>
+				Format: [molecule name] ([amount][unit]) + [molecule name]
+				([amount][unit]), etc.
+			</p>
+
+			<form
+				class="form"
+				action="/match-compositions"
+				method="post"
+				enctype="multipart/form-data"
+			>
+				<div class="file-upload-wrapper" data-text="Select your file!">
+					<input
+						name="file"
+						type="file"
+						class="file-upload-field"
+						value=""
+					/>
+				</div>
+				<input type="submit" value="Upload" />
+			</form>
+		</div>
+	</body>
 </html>

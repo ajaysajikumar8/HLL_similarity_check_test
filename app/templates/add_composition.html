@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Add Composition</title>
+	</head>
+	<body>
+		<div class="container">
+			<div><h1>Add a composition:</h1></div>
+
+			<form class="form" action="/add-new-composition" method="post">
+				<div>
+					<input
+						type="text"
+						name="content_code"
+						placeholder="Enter Content Code"
+					/>
+				</div>
+				<div>
+					<input
+						type="text"
+						name="composition_name"
+						placeholder="Enter Composition"
+					/>
+				</div>
+				<div>
+					<input
+						type="text"
+						name="dosage_form"
+						placeholder="Enter Dosage Form"
+					/>
+				</div>
+
+				<input type="submit" value="Submit" />
+			</form>
+		</div>
+	</body>
+</html>

@@ -13,6 +13,15 @@ rough_compositions_logger = logging.getLogger("rough_compositions")
 parse_composition_logger = logging.getLogger("parse_composition")
 
 
+def get_all_compositions():
+    try:
+        compositions = Compositions.query.all()
+        return compositions
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error retrieving all compositions: {e}")
+        return None
+
+
 def preprocess_data(data):
     modified_data = []
     for composition in data:
@@ -149,3 +158,20 @@ def match_compositions(df):
             continue
 
     return matched_compositions, unmatched_compositions, modified_df
+
+
+def add_composition(content_code, composition_name, dosage_form):
+    try:
+        new_composition = Compositions(
+            content_code=content_code,
+            compositions=composition_name,
+            compositions_striped="".join(composition_name.split()).lower(),
+            dosage_form=dosage_form,
+        )
+        db.session.add(new_composition)
+        db.session.commit()
+        return new_composition
+    except Exception as e:
+        db.session.rollback()
+        logging.getLogger(__name__).error(f"Error adding new composition: {e}")
+        return None

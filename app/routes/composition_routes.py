@@ -1,6 +1,18 @@
-from flask import Blueprint, request, jsonify, render_template, send_file
+from flask import (
+    Blueprint,
+    request,
+    jsonify,
+    render_template,
+    send_file,
+    redirect,
+    url_for,
+)
 import pandas as pd
-from ..services.composition_service import match_compositions
+from ..services.composition_service import (
+    match_compositions,
+    get_all_compositions,
+    add_composition,
+)
 import logging
 
 composition_bp = Blueprint("composition", __name__)
@@ -34,6 +46,46 @@ def match_compositions_api():
         unmatched_compositions=unmatched_compositions,
         matched_compositions=matched_compositions,
     )
+
+
+@composition_bp.route("/get-all-compositions")
+def get_all_compositions_route():
+    compositions = get_all_compositions()
+    if compositions is not None:
+        try:
+            compositions_data = [
+                {
+                    "id": composition.id,
+                    "content_code": composition.content_code,
+                    "compositions": composition.compositions,
+                    "compositions_striped": composition.compositions_striped,
+                    "dosage_form": composition.dosage_form,
+                }
+                for composition in compositions
+            ]
+            return jsonify({"compositions": compositions_data})
+        except Exception as e:
+            logging.getLogger(__name__).error(
+                f"Error retrieving compositions from DB: {e}"
+            )
+    else:
+        return jsonify({"error": "Error retrieving compositions"})
+
+
+@composition_bp.route("/add-new-composition", methods=["POST"])
+def add_new_composition():
+    content_code = request.form.get("content_code", None)
+    composition_name = request.form.get("composition_name")
+    dosage_form = request.form.get("dosage_form", None)
+
+    if not composition_name:
+        return jsonify({"error": "Composition name is required"}), 400
+
+    new_composition = add_composition(content_code, composition_name, dosage_form)
+    if new_composition:
+        return redirect(url_for("composition.get_all_compositions_route"))
+    else:
+        return jsonify({"error": "Error adding new composition"}), 500
 
 
 @composition_bp.route("/download-modified-file")

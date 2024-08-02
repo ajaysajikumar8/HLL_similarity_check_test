@@ -22,7 +22,16 @@ def get_all_compositions():
         return None
 
 
-def preprocess_data(data):
+def preprocess_data(data: list) -> list:
+    """
+    Split the composition and sort the molecule in ascending manner. The molecules are striped and converted to lower case.
+
+    Args:
+        data (list): compositions column from dataframe in excel
+
+    Returns:
+        Modified data (list): preprocessed compositions in excel
+    """
     modified_data = []
     for composition in data:
         sorted_molecules = sorted(
@@ -34,6 +43,7 @@ def preprocess_data(data):
 
 
 def preprocess_compositions_in_db():
+    """Within the database, execute the preprocess function to process the compositions stored in the db."""
     try:
         db.session.execute(
             text(
@@ -49,7 +59,17 @@ def preprocess_compositions_in_db():
         server_logger.error(f"Error preprocessing compositions in the database: {e}")
 
 
-def parse_composition(composition):
+def parse_composition(composition: str) -> list:
+    """
+    Identify the amounts and the units from the compositions.
+
+    Args:
+        composition (str) : Composition Inputed
+
+    Returns:
+        List: The parsed composition returned with name and unit separated
+    """
+
     try:
         pattern = r"([\w\s]+)(?:\(([\d.\/%\w]+)\))?"
         molecules = re.findall(pattern, composition)
@@ -66,7 +86,19 @@ def parse_composition(composition):
         return []
 
 
-def is_match(composition1, composition2):
+def is_match(composition1: str, composition2: str) -> bool:
+    """
+    Compare the parsed versions of the composition with the ones stored in the DB.
+
+    Args:
+        composition1 (str):  User entered Composition.
+        composition2 (str): DB Composition.
+
+    Returns:
+        True: if compostions match.
+        False: if compositions doesnt match.
+    """
+
     parsed1 = parse_composition(composition1)
     parsed2 = parse_composition(composition2)
     if parsed1 == parsed2:
@@ -79,6 +111,7 @@ def is_match(composition1, composition2):
 
 
 def match_compositions(df):
+    """ """
     try:
         df["compositions"] = preprocess_data(df["compositions"])
     except Exception as e:

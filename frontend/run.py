@@ -8,7 +8,6 @@ load_dotenv()
 app = Flask(__name__)
 
 backend_url = os.getenv("API_URL")  # Backend server URL
-print(backend_url)
 
 
 @app.route("/")

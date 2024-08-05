@@ -111,11 +111,16 @@ def is_match(composition1: str, composition2: str) -> bool:
 
 
 def match_compositions(df):
-    """ """
     try:
-        df["compositions"] = preprocess_data(df["compositions"])
+        print(df["Composition"])
     except Exception as e:
-        server_logger.error(f"Some error within the file: {e}")
+        print(f"File not read: {e}")
+    try:
+        df["Composition"] = preprocess_data(df["Composition"])
+    except Exception as e:
+        server_logger.error(
+            f"Some error within the file, Issues with the file format, not able to identify the column header: {e}"
+        )
 
     preprocess_compositions_in_db()
 
@@ -124,7 +129,8 @@ def match_compositions(df):
     modified_df = pd.DataFrame(columns=df.columns)
 
     for index, row in df.iterrows():
-        composition = row["compositions"]
+        print(row["Composition"])
+        composition = row["Composition"]
         striped_composition = composition.replace(" ", "")
         try:
             query = (

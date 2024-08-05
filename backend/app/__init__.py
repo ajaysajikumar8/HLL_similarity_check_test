@@ -20,10 +20,8 @@ def create_app():
     setup_logging("parse_composition.log", "parse_composition")
 
     # Register blueprints
-    from .routes.main_routes import main_bp
     from .routes.composition_routes import composition_bp
 
-    app.register_blueprint(main_bp)
     app.register_blueprint(composition_bp)
 
     with app.app_context():

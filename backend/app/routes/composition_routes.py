@@ -1,12 +1,4 @@
-from flask import (
-    Blueprint,
-    request,
-    jsonify,
-    render_template,
-    send_file,
-    redirect,
-    url_for,
-)
+from flask import Blueprint, request, jsonify, send_file
 import pandas as pd
 from ..services.composition_service import (
     match_compositions,
@@ -26,7 +18,6 @@ def match_compositions_api():
 
     try:
         df = pd.read_excel(file, engine="openpyxl")
-        print("Test: ", __name__)
     except Exception as e:
         logging.getLogger(__name__).error(f"Error reading Excel file: {e}")
         return jsonify({"error": "Error reading Excel file"})
@@ -41,10 +32,13 @@ def match_compositions_api():
 
     modified_file_path = "matched_compositions.xlsx"
     modified_df.to_excel(modified_file_path, index=False)
-    return render_template(
-        "results.html",
-        unmatched_compositions=unmatched_compositions,
-        matched_compositions=matched_compositions,
+
+    return jsonify(
+        {
+            "matched_compositions": matched_compositions,
+            "unmatched_compositions": unmatched_compositions,
+            "file_path": modified_file_path,
+        }
     )
 
 
@@ -68,6 +62,7 @@ def get_all_compositions_route():
             logging.getLogger(__name__).error(
                 f"Error retrieving compositions from DB: {e}"
             )
+            return jsonify({"error": "Error processing compositions data"})
     else:
         return jsonify({"error": "Error retrieving compositions"})
 
@@ -83,7 +78,7 @@ def add_new_composition():
 
     new_composition = add_composition(content_code, composition_name, dosage_form)
     if new_composition:
-        return redirect(url_for("composition.get_all_compositions_route"))
+        return jsonify({"message": "Composition added successfully"})
     else:
         return jsonify({"error": "Error adding new composition"}), 500
 

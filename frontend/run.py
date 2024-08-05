@@ -1,9 +1,14 @@
 from flask import Flask, render_template, request, jsonify
 import requests
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 app = Flask(__name__)
 
-BACKEND_URL = "http://localhost:5000"  # Backend server URL
+backend_url = os.getenv("API_URL")  # Backend server URL
+print(backend_url)
 
 
 @app.route("/")
@@ -23,7 +28,7 @@ def match_compositions():
         return jsonify({"error": "No file uploaded"})
 
     files = {"file": (file.filename, file.stream, file.mimetype)}
-    response = requests.post(f"{BACKEND_URL}/match-compositions", files=files)
+    response = requests.post(f"{backend_url}/match-compositions", files=files)
     response = response.json()
     matched_compositions = response["matched_compositions"]
     unmatched_compositions = response["unmatched_compositions"]
@@ -37,7 +42,7 @@ def match_compositions():
 
 @app.route("/get-all-compositions")
 def get_all_compositions():
-    response = requests.get(f"{BACKEND_URL}/get-all-compositions")
+    response = requests.get(f"{backend_url}/get-all-compositions")
     return response.json()
 
 
@@ -48,7 +53,7 @@ def add_new_composition():
         "composition_name": request.form.get("composition_name"),
         "dosage_form": request.form.get("dosage_form"),
     }
-    response = requests.post(f"{BACKEND_URL}/add-new-composition", data=data)
+    response = requests.post(f"{backend_url}/add-new-composition", data=data)
     return response.json()
 
 

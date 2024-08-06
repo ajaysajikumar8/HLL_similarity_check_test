@@ -27,16 +27,19 @@ def match_compositions():
         return jsonify({"error": "No file uploaded"})
 
     files = {"file": (file.filename, file.stream, file.mimetype)}
-    response = requests.post(f"{backend_url}/match-compositions", files=files)
-    response = response.json()
-    matched_compositions = response["matched_compositions"]
-    unmatched_compositions = response["unmatched_compositions"]
+    try:
+        response = requests.post(f"{backend_url}/match-compositions", files=files)
+        response = response.json()
+        matched_compositions = response["matched_compositions"]
+        unmatched_compositions = response["unmatched_compositions"]
 
-    return render_template(
-        "results.html",
-        unmatched_compositions=unmatched_compositions,
-        matched_compositions=matched_compositions,
-    )
+        return render_template(
+            "results.html",
+            unmatched_compositions=unmatched_compositions,
+            matched_compositions=matched_compositions,
+        )
+    except Exception as e:
+        return jsonify({"error": "Error matching the compositions"})
 
 
 @app.route("/get-all-compositions")

@@ -112,10 +112,6 @@ def is_match(composition1: str, composition2: str) -> bool:
 
 def match_compositions(df):
     try:
-        print(df["Composition"])
-    except Exception as e:
-        print(f"File not read: {e}")
-    try:
         df["Composition"] = preprocess_data(df["Composition"])
     except Exception as e:
         server_logger.error(
@@ -123,15 +119,46 @@ def match_compositions(df):
         )
 
     preprocess_compositions_in_db()
+    # print(df)
 
     matched_compositions = []
     unmatched_compositions = []
     modified_df = pd.DataFrame(columns=df.columns)
 
     for index, row in df.iterrows():
-        print(row["Composition"])
-        composition = row["Composition"]
-        striped_composition = composition.replace(" ", "")
+        df_sl_no = row["Sl No"]
+        df_brand_name = row["Brand Name"]
+        df_compositions = row["Composition"]
+        df_name_of_manufacturer = row["Name of manufacturer"]
+        df_UoM = row["UoM"]
+        df_packing_mode = row["packing mode"]
+        df_GST = row["GST %  "]
+        df_MRP_incl_tax = row["MRP(incl of tax)"]
+        df_unit_rate_to_hll_excl_of_tax = row["Unit Rate to HLL (excl of tax)"]
+        df_unit_rate_to_hll_incl_of_tax = row[
+            "Unit Rate incl of tax  to HLL                                                     (Rate excl of tax*GST%)+Rate excl of tax"
+        ]
+        df_hsn_code = row["HSN Code"]
+        df_margin_percent_incl_of_tax = row[
+            "Margin %                             (MRP-Unit Rate incl of tax)/MRP*100"
+        ]
+
+        composition = {
+            "df_sl_no": df_sl_no,
+            "df_brand_name": df_brand_name,
+            "df_compositions": df_compositions,
+            "df_name_of_manufacturer": df_name_of_manufacturer,
+            "df_UoM": df_UoM,
+            "df_packing_mode": df_packing_mode,
+            "df_GST": df_GST,
+            "df_MRP_incl_tax": df_MRP_incl_tax,
+            "df_unit_rate_to_hll_excl_of_tax": df_unit_rate_to_hll_excl_of_tax,
+            "df_unit_rate_to_hll_incl_of_tax": df_unit_rate_to_hll_incl_of_tax,
+            "df_hsn_code": df_hsn_code,
+            "df_margin_percent_incl_of_tax": df_margin_percent_incl_of_tax,
+        }
+
+        striped_composition = df_compositions.replace(" ", "")
         try:
             query = (
                 db.session.query(Compositions)
@@ -155,7 +182,7 @@ def match_compositions(df):
                     striped_composition, db_composition_striped
                 )
                 rough_compositions_logger.info(
-                    f"User-Inputted: {composition}; DB Composition: {db_composition}; with similarity score: {similarity}"
+                    f"User-Inputted: {df_compositions}; DB Composition: {db_composition}; with similarity score: {similarity}"
                 )
                 rough_compositions_logger.info(
                     f"Striped User-Input: {striped_composition}; DB Stripped Composition: {db_composition_striped}; with similarity score: {similarity} \n"
@@ -167,6 +194,7 @@ def match_compositions(df):
                     max_similarity = similarity
                     best_match = res.compositions
 
+
                 similar_items_score.append(
                     {"db_composition": db_composition, "similarity_score": similarity}
                 )
@@ -175,12 +203,13 @@ def match_compositions(df):
                 similar_items_score, key=lambda x: x["similarity_score"], reverse=True
             )
             if best_match and max_similarity > 98:
-                matched_compositions.append(best_match)
+                composition["df_compositions"] = best_match
+                matched_compositions.append(composition)
                 modified_df.loc[index] = row
                 modified_df.at[index, "compositions"] = best_match
 
                 composition_match_logger.info(
-                    f"User-entered composition: {composition}, Matched composition: {best_match}, Match score: {max_similarity}"
+                    f"User-entered composition: {df_compositions}, Matched composition: {best_match}, Match score: {max_similarity}"
                 )
             else:
                 unmatched_compositions.append(
@@ -190,11 +219,13 @@ def match_compositions(df):
                     }
                 )
                 unmatched_compositions_logger.info(
-                    f"Unmatched composition: {composition}, Similarity percentage: {similarity}"
+                    f"Unmatched composition: {df_compositions}, Similarity percentage: {similarity}"
                 )
         except Exception as e:
             server_logger.error(f"Error matching compositions: {e}")
             continue
+
+    print(matched_compositions, unmatched_compositions)
 
     return matched_compositions, unmatched_compositions, modified_df
 

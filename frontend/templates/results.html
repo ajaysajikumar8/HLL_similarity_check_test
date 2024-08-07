@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Results</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <style>
-        /* Style for the accordion */
         .accordion {
             cursor: pointer;
             padding: 10px;
@@ -25,38 +25,171 @@
             background-color: white;
             overflow: hidden;
         }
+        .table th, .table td {
+            padding: 8px;
+            text-align: center;
+        }
+        .btn-search {
+            color: #fff;
+            background-color: #5bc0de;
+            border-color: #46b8da;
+        }
     </style>
 </head>
 <body>
-    <h1>Matched Compositions</h1>
-    <ul>
-        {% for matched_composition in matched_compositions %}
-        <li>{{ matched_composition }}</li>
-        {% endfor %}
-    </ul>
 
-    <h1>Unmatched Compositions</h1>
-    <ul>
-        {% for unmatched_composition in unmatched_compositions %}
-        <li>
-            <button class="accordion">{{ unmatched_composition["user_composition"] }}</button>
-            <div class="panel">
-                <ul
-                    {% for similar_item in unmatched_composition["similar_items"] %}
-                    <li>{{ similar_item["db_composition"] }} - Similarity: {{ similar_item["similarity_score"] }}%</li>
-                    {% endfor %}
-                </ul>
+    <div class="container">
+        <div class="accordion" id="compositionAccordion">
+            <!-- Matched Compositions -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between" id="headingMatched">
+                    <h5>Matched Compositions</h5>
+                    <div>
+                        <button class="btn btn-secondary" id="toggleMatched" onclick="toggleTable('collapseMatched', 'toggleMatched')">Collapse</button>
+                        <a href="/download-modified-file" download>
+                            <button class="btn btn-search">
+                                <i class="fa fa-table" aria-hidden="true"></i>
+                                Export as Excel
+                            </button>
+                        </a>
+                    </div>
+                </div>
+                <div id="collapseMatched" class="collapse show" aria-labelledby="headingMatched" data-parent="#compositionAccordion">
+                    <div class="card-body">
+                        <table width="100%" class="table" id="matched_table">
+                            <thead>
+                                <tr>
+                                    <th>SL No</th>
+                                    <th>Brand Name</th>
+                                    <th>Compositions</th>
+                                    <th>Name of Manufacturer</th>
+                                    <th>UoM</th>
+                                    <th>Packing Mode</th>
+                                    <th>GST</th>
+                                    <th>MRP incl tax</th>
+                                    <th>Unit Rate to HLL excl of tax</th>
+                                    <th>Unit Rate to HLL incl of tax</th>
+                                    <th>HSN Code</th>
+                                    <th>Margin Percent incl of tax</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for composition in matched_compositions %}
+                                <tr>
+                                    <td>{{ composition.df_sl_no }}</td>
+                                    <td>{{ composition.df_brand_name }}</td>
+                                    <td>{{ composition.df_compositions }}</td>
+                                    <td>{{ composition.df_name_of_manufacturer }}</td>
+                                    <td>{{ composition.df_UoM }}</td>
+                                    <td>{{ composition.df_packing_mode }}</td>
+                                    <td>{{ composition.df_GST }}</td>
+                                    <td>{{ composition.df_MRP_incl_tax }}</td>
+                                    <td>{{ composition.df_unit_rate_to_hll_excl_of_tax }}</td>
+                                    <td>{{ composition.df_unit_rate_to_hll_incl_of_tax }}</td>
+                                    <td>{{ composition.df_hsn_code }}</td>
+                                    <td>{{ composition.df_margin_percent_incl_of_tax }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-        </li>
-        {% endfor %}
-    </ul>
 
-    <a href="/download-modified-file" download>
-        <button>Download Excel File</button>
-    </a>
+            <!-- Unmatched Compositions -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between" id="headingUnmatched">
+                    <h5>Unmatched Compositions</h5>
+                    <div>
+                        <button class="btn btn-secondary" id="toggleUnmatched" onclick="toggleTable('collapseUnmatched', 'toggleUnmatched')">Collapse</button>
+                    </div>
+                </div>
+                <div id="collapseUnmatched" class="collapse show" aria-labelledby="headingUnmatched" data-parent="#compositionAccordion">
+                    <div class="card-body">
+                        <table width="100%" class="table">
+                            <thead>
+                                <tr>
+                                    <th>User Composition</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for unmatched_composition in unmatched_compositions %}
+                                <tr>
+                                    <td>{{ unmatched_composition.user_composition.df_compositions }}</td>
+                                    <td>
+                                        <button class="btn btn-secondary" data-target="item-{{ loop.index }}">View Similar</button>
+                                    </td>
+                                </tr>
+                                <tr class="similar-row item-{{ loop.index }}" style="display: none;">
+                                    <td colspan="2">
+                                        <div class="similar-items card m-2">
+                                            <table class="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Similar Composition</th>
+                                                        <th>Similarity Score</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for similar_item in unmatched_composition.similar_items %}
+                                                    <tr>
+                                                        <td>{{ similar_item.db_composition }}</td>
+                                                        <td>{{ similar_item.similarity_score }}</td>
+                                                        <td><button class="btn btn-secondary">Use this</button></td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Add New Composition Modal -->
+    <div class="modal fade" id="newCompositionModal" tabindex="-1" role="dialog" aria-labelledby="newCompositionModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newCompositionModalLabel">New Composition</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form action="">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="compositionName">Name</label><span class="required-input">*</span>
+                                <input class="form-control" id="compositionName" name="compositionName" type="text" placeholder="Linagliptin">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="compositionPrice">Price</label><span class="required-input">*</span>
+                                <input class="form-control" id="compositionPrice" name="compositionPrice" type="text" placeholder="500">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
     <script>
-        // Script for handling accordion functionality
         var acc = document.getElementsByClassName("accordion");
         for (var i = 0; i < acc.length; i++) {
             acc[i].addEventListener("click", function() {
@@ -69,6 +202,23 @@
                 }
             });
         }
+
+        function toggleTable(collapseId, buttonId) {
+            var collapseElement = document.getElementById(collapseId);
+            var buttonElement = document.getElementById(buttonId);
+            if (collapseElement.classList.contains('show')) {
+                $(collapseElement).collapse('hide');
+                buttonElement.textContent = 'Expand';
+            } else {
+                $(collapseElement).collapse('show');
+                buttonElement.textContent = 'Collapse';
+            }
+        }
+
+        $('button[data-target^="item-"]').on('click', function () {
+            const targetClass = $(this).data('target');
+            $(`.${targetClass}`).toggle();
+        });
     </script>
 </body>
 </html>

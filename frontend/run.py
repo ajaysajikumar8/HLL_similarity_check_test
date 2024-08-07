@@ -39,7 +39,7 @@ def match_compositions():
             matched_compositions=matched_compositions,
         )
     except Exception as e:
-        return jsonify({"error": "Error matching the compositions"})
+        return jsonify({"error": "Some issues with the template rendering"})
 
 
 @app.route("/get-all-compositions")

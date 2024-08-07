@@ -14,6 +14,7 @@ composition_bp = Blueprint("composition", __name__)
 def match_compositions_api():
     file = request.files.get("file")
     if not file:
+        logging.getLogger(__name__).error(f"File not uploaded")
         return jsonify({"error": "No file uploaded"})
 
     try:

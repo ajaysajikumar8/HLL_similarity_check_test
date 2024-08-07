@@ -6,6 +6,8 @@ from ..services.composition_service import (
     add_composition,
 )
 import logging
+from ..utils import CustomJSONEncoder, replace_nan_with_none
+import json
 
 composition_bp = Blueprint("composition", __name__)
 
@@ -34,13 +36,17 @@ def match_compositions_api():
     modified_file_path = "matched_compositions.xlsx"
     modified_df.to_excel(modified_file_path, index=False)
 
-    return jsonify(
-        {
-            "matched_compositions": matched_compositions,
-            "unmatched_compositions": unmatched_compositions,
-            "file_path": modified_file_path,
-        }
-    )
+    data = {
+        "matched_compositions": matched_compositions,
+        "unmatched_compositions": unmatched_compositions,
+        "file_path": modified_file_path,
+    }
+
+    clean_data = replace_nan_with_none(data)
+
+    logging.getLogger(__name__).info(clean_data)
+
+    return jsonify(clean_data)
 
 
 @composition_bp.route("/get-all-compositions")

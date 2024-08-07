@@ -126,6 +126,7 @@ def match_compositions(df):
     modified_df = pd.DataFrame(columns=df.columns)
 
     for index, row in df.iterrows():
+        # Note: Dont remove the extra spaces inside the "key" in row[key], as it may impact the dataframe column selection
         df_sl_no = row["Sl No"]
         df_brand_name = row["Brand Name"]
         df_compositions = row["Composition"]
@@ -194,7 +195,6 @@ def match_compositions(df):
                     max_similarity = similarity
                     best_match = res.compositions
 
-
                 similar_items_score.append(
                     {"db_composition": db_composition, "similarity_score": similarity}
                 )
@@ -224,8 +224,6 @@ def match_compositions(df):
         except Exception as e:
             server_logger.error(f"Error matching compositions: {e}")
             continue
-
-    print(matched_compositions, unmatched_compositions)
 
     return matched_compositions, unmatched_compositions, modified_df
 

@@ -8,6 +8,7 @@ load_dotenv()
 app = Flask(__name__)
 
 backend_url = os.getenv("API_URL")  # Backend server URL
+backend_url = "http://192.168.1.57:5000" #overwrote because of env error :: CHECK LATER
 
 
 @app.route("/")
@@ -44,8 +45,12 @@ def match_compositions():
 
 @app.route("/get-all-compositions")
 def get_all_compositions():
-    response = requests.get(f"{backend_url}/get-all-compositions")
-    return response.json()
+    try:
+        response = requests.get(f"{backend_url}/get-all-compositions")
+        return response.json()
+    except Exception as e:
+        print(f"{backend_url}/get-all-compositions")
+        return jsonify({"error": ""})
 
 
 @app.route("/add-new-composition", methods=["POST"])

@@ -1,10 +1,12 @@
 import os
 import logging
-import json
 import numpy as np
 
 
 def setup_logging(log_file_name, logger_name):
+    """
+    Setup Logging for different modules of the application. Each Log file serving its own purpose
+    """
     logs_dir = "logs"
     os.makedirs(logs_dir, exist_ok=True)
     log_file_path = os.path.join(logs_dir, log_file_name)
@@ -16,15 +18,10 @@ def setup_logging(log_file_name, logger_name):
     logger.addHandler(file_handler)
 
 
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, float) and np.isnan(obj):
-            return None
-        return super().default(obj)
-
-
-
 def replace_nan_with_none(data):
+    """
+    Replace 'nan' to just ''. Done to reduce the errors while decoding the json.
+    """
     if isinstance(data, dict):
         return {k: replace_nan_with_none(v) for k, v in data.items()}
     elif isinstance(data, list):

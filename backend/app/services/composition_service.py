@@ -14,6 +14,10 @@ parse_composition_logger = logging.getLogger("parse_composition")
 
 
 def get_all_compositions():
+    """
+    Returns:
+        List: All the compositions from the DB.
+    """
     try:
         compositions = Compositions.query.all()
         return compositions
@@ -61,7 +65,7 @@ def preprocess_compositions_in_db():
 
 def parse_composition(composition: str) -> list:
     """
-    Identify the amounts and the units from the compositions.
+    Split the composition from its name and amount.
 
     Args:
         composition (str) : Composition Inputed
@@ -110,7 +114,18 @@ def is_match(composition1: str, composition2: str) -> bool:
     return parsed1 == parsed2
 
 
+
 def match_compositions(df):
+    """
+    Checks the compositions in the dataframe and check if they are matched with the DB.
+
+    Args:
+        df (dataframe): Data from the excel sheet.
+
+    Returns:
+        Matched Compositions (List): List of matched compositions.
+        Unmatched Compositions (List): List of unmatched compositions.
+    """
     try:
         df["Composition"] = preprocess_data(df["Composition"])
     except Exception as e:
@@ -119,14 +134,13 @@ def match_compositions(df):
         )
 
     preprocess_compositions_in_db()
-    # print(df)
 
     matched_compositions = []
     unmatched_compositions = []
-    modified_df = pd.DataFrame(columns=df.columns)
+    modified_df = pd.DataFrame(columns=df.columns) # Should be handled within Laravel system ::: FIX LATER
 
     for index, row in df.iterrows():
-        # Note: Dont remove the extra spaces inside the "key" in row[key], as it may impact the dataframe column selection
+        # Note: Dont remove the extra spaces inside the "key" in row[key], as it may impact the dataframe column selection ::: FIX LATER
         df_sl_no = row["Sl No"]
         df_brand_name = row["Brand Name"]
         df_compositions = row["Composition"]
@@ -144,6 +158,7 @@ def match_compositions(df):
             "Margin %                             (MRP-Unit Rate incl of tax)/MRP*100"
         ]
 
+        # Creating the composition object for each item in the dataframe row ::: MAKE A REUSABLE FUNCTION
         composition = {
             "df_sl_no": df_sl_no,
             "df_brand_name": df_brand_name,
@@ -161,6 +176,7 @@ def match_compositions(df):
 
         striped_composition = df_compositions.replace(" ", "")
         try:
+            # ::: MAKE A REUSABLE FUNCTION
             query = (
                 db.session.query(Compositions)
                 .order_by(

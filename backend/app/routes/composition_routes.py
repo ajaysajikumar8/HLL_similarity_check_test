@@ -6,8 +6,7 @@ from ..services.composition_service import (
     add_composition,
 )
 import logging
-from ..utils import CustomJSONEncoder, replace_nan_with_none
-import json
+from ..utils import replace_nan_with_none
 
 composition_bp = Blueprint("composition", __name__)
 
@@ -33,18 +32,12 @@ def match_compositions_api():
         logging.getLogger(__name__).error(f"Error performing string matching: {e}")
         return jsonify({"error": "Error performing string matching"})
 
-    modified_file_path = "matched_compositions.xlsx"
-    modified_df.to_excel(modified_file_path, index=False)
-
     data = {
         "matched_compositions": matched_compositions,
         "unmatched_compositions": unmatched_compositions,
-        "file_path": modified_file_path,
     }
 
     clean_data = replace_nan_with_none(data)
-
-    logging.getLogger(__name__).info(clean_data)
 
     return jsonify(clean_data)
 
@@ -88,9 +81,3 @@ def add_new_composition():
         return jsonify({"message": "Composition added successfully"})
     else:
         return jsonify({"error": "Error adding new composition"}), 500
-
-
-@composition_bp.route("/download-modified-file")
-def download_modified_file():
-    modified_file_path = "matched_compositions.xlsx"
-    return send_file(modified_file_path, as_attachment=True)

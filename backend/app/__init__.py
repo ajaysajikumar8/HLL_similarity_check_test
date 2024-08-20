@@ -6,7 +6,6 @@ import os
 
 load_dotenv()
 
-
 def create_app():
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
@@ -20,6 +19,7 @@ def create_app():
     setup_logging("unmatched_compositions.log", "unmatched_compositions")
     setup_logging("rough_compositions.log", "rough_compositions")
     setup_logging("parse_composition.log", "parse_composition")
+    setup_logging("price_cap.log", "price_cap")
 
     # Register blueprints
     from .routes.composition_routes import composition_bp

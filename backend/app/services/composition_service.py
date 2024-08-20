@@ -3,7 +3,7 @@ from fuzzywuzzy import fuzz
 import re
 import logging
 from sqlalchemy import func, text
-from ..models import Compositions
+from ..models import Compositions, PriceCap
 from ..db import db
 
 server_logger = logging.getLogger(__name__)
@@ -11,6 +11,7 @@ composition_match_logger = logging.getLogger("composition_match")
 unmatched_compositions_logger = logging.getLogger("unmatched_compositions")
 rough_compositions_logger = logging.getLogger("rough_compositions")
 parse_composition_logger = logging.getLogger("parse_composition")
+price_cap_logger = logging.getLogger("price_cap")
 
 
 def get_all_compositions():
@@ -46,21 +47,27 @@ def preprocess_data(data: list) -> list:
     return modified_data
 
 
-def preprocess_compositions_in_db():
-    """Within the database, execute the preprocess function to process the compositions stored in the db."""
+def preprocess_compositions_in_db(table_name):
+    """
+    Preprocess compositions within the specified table and store the processed compositions
+    in the compositions_striped column.
+    :param table_name: Name of the table to be processed (e.g., 'Compositions' or 'PriceCap').
+    """
     try:
         db.session.execute(
             text(
-                "UPDATE Compositions SET compositions_striped = preprocess_composition(compositions);"
+                f"UPDATE {table_name} SET compositions_striped = preprocess_composition(compositions);"
             )
         )
         db.session.commit()
         server_logger.info(
-            "Compositions preprocessed and stored in compositions_striped in the database"
+            f"Compositions in {table_name} preprocessed and stored in compositions_striped."
         )
     except Exception as e:
         db.session.rollback()
-        server_logger.error(f"Error preprocessing compositions in the database: {e}")
+        server_logger.error(
+            f"Error preprocessing compositions in the {table_name} table: {e}"
+        )
 
 
 def parse_composition(composition: str) -> list:
@@ -114,17 +121,15 @@ def is_match(composition1: str, composition2: str) -> bool:
     return parsed1 == parsed2
 
 
-
 def match_compositions(df):
     """
-    Checks the compositions in the dataframe and check if they are matched with the DB.
+    Checks the compositions in the dataframe and checks if they match with the DB.
 
     Args:
         df (dataframe): Data from the excel sheet.
 
     Returns:
-        Matched Compositions (List): List of matched compositions.
-        Unmatched Compositions (List): List of unmatched compositions.
+        dict: API response containing matched and unmatched compositions.
     """
     try:
         df["Composition"] = preprocess_data(df["Composition"])
@@ -133,50 +138,35 @@ def match_compositions(df):
             f"Some error within the file, Issues with the file format, not able to identify the column header: {e}"
         )
 
-    preprocess_compositions_in_db()
+    preprocess_compositions_in_db("Compositions")
+    preprocess_compositions_in_db("Price_Cap")
 
     matched_compositions = []
     unmatched_compositions = []
-    modified_df = pd.DataFrame(columns=df.columns) # Should be handled within Laravel system ::: FIX LATER
 
     for index, row in df.iterrows():
-        # Note: Dont remove the extra spaces inside the "key" in row[key], as it may impact the dataframe column selection ::: FIX LATER
-        df_sl_no = row["Sl No"]
-        df_brand_name = row["Brand Name"]
-        df_compositions = row["Composition"]
-        df_name_of_manufacturer = row["Name of manufacturer"]
-        df_UoM = row["UoM"]
-        df_packing_mode = row["packing mode"]
-        df_GST = row["GST %  "]
-        df_MRP_incl_tax = row["MRP(incl of tax)"]
-        df_unit_rate_to_hll_excl_of_tax = row["Unit Rate to HLL (excl of tax)"]
-        df_unit_rate_to_hll_incl_of_tax = row[
-            "Unit Rate incl of tax  to HLL                                                     (Rate excl of tax*GST%)+Rate excl of tax"
-        ]
-        df_hsn_code = row["HSN Code"]
-        df_margin_percent_incl_of_tax = row[
-            "Margin %                             (MRP-Unit Rate incl of tax)/MRP*100"
-        ]
-
-        # Creating the composition object for each item in the dataframe row ::: MAKE A REUSABLE FUNCTION
         composition = {
-            "df_sl_no": df_sl_no,
-            "df_brand_name": df_brand_name,
-            "df_compositions": df_compositions,
-            "df_name_of_manufacturer": df_name_of_manufacturer,
-            "df_UoM": df_UoM,
-            "df_packing_mode": df_packing_mode,
-            "df_GST": df_GST,
-            "df_MRP_incl_tax": df_MRP_incl_tax,
-            "df_unit_rate_to_hll_excl_of_tax": df_unit_rate_to_hll_excl_of_tax,
-            "df_unit_rate_to_hll_incl_of_tax": df_unit_rate_to_hll_incl_of_tax,
-            "df_hsn_code": df_hsn_code,
-            "df_margin_percent_incl_of_tax": df_margin_percent_incl_of_tax,
+            "df_sl_no": row["Sl No"],
+            "df_brand_name": row["Brand Name"],
+            "df_compositions": row["Composition"],
+            "df_name_of_manufacturer": row["Name of manufacturer"],
+            "df_UoM": row["UoM"],
+            "df_dosage_form": row["Dosage  Form"],
+            "df_packing_unit": row["Packing Unit"],
+            "df_GST": row["GST %  "],
+            "df_MRP_incl_tax": row["MRP(incl of tax)"],
+            "df_unit_rate_to_hll_excl_of_tax": row["Unit Rate to HLL (excl of tax)"],
+            "df_unit_rate_to_hll_incl_of_tax": row[
+                "Unit Rate incl of tax  to HLL                                                     (Rate excl of tax*GST%)+Rate excl of tax"
+            ],
+            "df_hsn_code": row["HSN Code"],
+            "df_margin_percent_incl_of_tax": row[
+                "Margin %                             (MRP-Unit Rate incl of tax)/MRP*100"
+            ],
         }
 
-        striped_composition = df_compositions.replace(" ", "")
+        striped_composition = composition["df_compositions"].replace(" ", "")
         try:
-            # ::: MAKE A REUSABLE FUNCTION
             query = (
                 db.session.query(Compositions)
                 .order_by(
@@ -198,18 +188,18 @@ def match_compositions(df):
                 similarity = fuzz.token_sort_ratio(
                     striped_composition, db_composition_striped
                 )
-                rough_compositions_logger.info(
-                    f"User-Inputted: {df_compositions}; DB Composition: {db_composition}; with similarity score: {similarity}"
-                )
-                rough_compositions_logger.info(
-                    f"Striped User-Input: {striped_composition}; DB Stripped Composition: {db_composition_striped}; with similarity score: {similarity} \n"
-                )
+                # rough_compositions_logger.info(
+                #     f"User-Inputted: {df_compositions}; DB Composition: {db_composition}; with similarity score: {similarity}"
+                # )
+                # rough_compositions_logger.info(
+                #     f"Striped User-Input: {striped_composition}; DB Stripped Composition: {db_composition_striped}; with similarity score: {similarity} \n"
+                # )
 
                 if similarity > max_similarity and is_match(
                     striped_composition, db_composition_striped
                 ):
                     max_similarity = similarity
-                    best_match = res.compositions
+                    best_match = res
 
                 similar_items_score.append(
                     {"db_composition": db_composition, "similarity_score": similarity}
@@ -218,15 +208,66 @@ def match_compositions(df):
             similar_items_score = sorted(
                 similar_items_score, key=lambda x: x["similarity_score"], reverse=True
             )
-            if best_match and max_similarity > 98:
-                composition["df_compositions"] = best_match
-                matched_compositions.append(composition)
-                modified_df.loc[index] = row
-                modified_df.at[index, "compositions"] = best_match
 
-                composition_match_logger.info(
-                    f"User-entered composition: {df_compositions}, Matched composition: {best_match}, Match score: {max_similarity}"
-                )
+            if best_match and max_similarity > 98:
+                composition["df_compositions"] = best_match.compositions
+
+                # Implement the price cap
+                try:
+                    price_cap_query = (
+                        db.session.query(PriceCap)
+                        .filter(
+                            PriceCap.compositions_striped
+                            == best_match.compositions_striped
+                        )
+                        .limit(1)
+                    )
+                    price_cap_result = price_cap_query.first()
+
+                    if price_cap_result:
+                        df_dosage_form = composition["df_dosage_form"].lower().strip()
+                        df_packing_unit = composition["df_packing_unit"].lower().strip()
+
+                        if (
+                            df_dosage_form
+                            == price_cap_result.dosage_form.lower().strip()
+                            and df_packing_unit
+                            == price_cap_result.packing_unit.lower().strip()
+                        ):
+                            price_diff = (
+                                price_cap_result.price_cap
+                                - composition["df_unit_rate_to_hll_excl_of_tax"]
+                            )
+
+                            price_diff = float(price_diff)
+                            status = "Below" if price_diff > 0 else "Above"
+
+                            composition["price_comparison"] = {
+                                "price_diff": price_diff,
+                                "status": status,
+                            }
+                        else:
+                            composition["price_comparison"] = {
+                                "price_diff": None,
+                                "status": "No Match on Dosage or Packing Unit",
+                            }
+                    else:
+                        composition["price_comparison"] = {
+                            "price_diff": None,
+                            "status": "No Price Found",
+                        }
+
+                except Exception as e:
+                    price_cap_logger.error(f"Error while matching the price: {e}")
+                    composition["price_comparison"] = {
+                        "price_diff": None,
+                        "status": "Error while fetching price",
+                    }
+
+                matched_compositions.append(composition)
+                # composition_match_logger.info(
+                #     f"User-entered composition: {df_compositions}, Matched composition: {best_match}, Match score: {max_similarity}"
+                # )
             else:
                 unmatched_compositions.append(
                     {
@@ -234,14 +275,14 @@ def match_compositions(df):
                         "similar_items": similar_items_score,
                     }
                 )
-                unmatched_compositions_logger.info(
-                    f"Unmatched composition: {df_compositions}, Similarity percentage: {similarity}"
-                )
+            # unmatched_compositions_logger.info(
+            #         f"Unmatched composition: {df_compositions}, Similarity percentage: {similarity}"
+            #     )
         except Exception as e:
             server_logger.error(f"Error matching compositions: {e}")
             continue
 
-    return matched_compositions, unmatched_compositions, modified_df
+    return matched_compositions, unmatched_compositions
 
 
 def add_composition(content_code, composition_name, dosage_form):

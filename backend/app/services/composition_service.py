@@ -20,7 +20,7 @@ def get_all_compositions():
         List: All the compositions from the DB.
     """
     try:
-        compositions = Compositions.query.all()
+        compositions = Compositions.query.filter(Compositions.status == 1).all()
         return compositions
     except Exception as e:
         logging.getLogger(__name__).error(f"Error retrieving all compositions: {e}")
@@ -146,29 +146,26 @@ def match_compositions(df):
 
     for index, row in df.iterrows():
         composition = {
-            "df_sl_no": row["Sl No"],
-            "df_brand_name": row["Brand Name"],
-            "df_compositions": row["Composition"],
-            "df_name_of_manufacturer": row["Name of manufacturer"],
-            "df_UoM": row["UoM"],
-            "df_dosage_form": row["Dosage  Form"],
-            "df_packing_unit": row["Packing Unit"],
-            "df_GST": row["GST %  "],
-            "df_MRP_incl_tax": row["MRP(incl of tax)"],
-            "df_unit_rate_to_hll_excl_of_tax": row["Unit Rate to HLL (excl of tax)"],
-            "df_unit_rate_to_hll_incl_of_tax": row[
-                "Unit Rate incl of tax  to HLL                                                     (Rate excl of tax*GST%)+Rate excl of tax"
-            ],
-            "df_hsn_code": row["HSN Code"],
-            "df_margin_percent_incl_of_tax": row[
-                "Margin %                             (MRP-Unit Rate incl of tax)/MRP*100"
-            ],
+            "df_sl_no": row["sl_no"],
+            "df_brand_name": row["brand_name"],
+            "df_compositions": row["composition"],
+            "df_name_of_manufacturer": row["name_of_manufacturer"],
+            "df_UoM": row["u_o_m"],
+            "df_dosage_form": row["dosage_form"],
+            "df_packing_unit": row["packing_unit"],
+            "df_GST": row["gst"],
+            "df_MRP_incl_tax": row["mrp_incl_of_tax"],
+            "df_unit_rate_to_hll_excl_of_tax": row["unit_rate_to_hll_excl_of_tax"],
+            "df_unit_rate_to_hll_incl_of_tax": row["unit_rate_to_hll_incl_of_tax"],
+            "df_hsn_code": row["hsn_code"],
+            "df_margin_percent_incl_of_tax": row["margin"],
         }
 
         striped_composition = composition["df_compositions"].replace(" ", "")
         try:
             query = (
                 db.session.query(Compositions)
+                .filter(Compositions.status == 1)
                 .order_by(
                     func.levenshtein(
                         Compositions.compositions_striped, striped_composition

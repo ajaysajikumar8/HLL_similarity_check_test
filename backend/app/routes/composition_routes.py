@@ -70,6 +70,7 @@ def get_all_compositions_route():
                     "compositions": composition.compositions,
                     "compositions_striped": composition.compositions_striped,
                     "dosage_form": composition.dosage_form,
+                    "status": composition.status,
                 }
                 for composition in compositions
             ]

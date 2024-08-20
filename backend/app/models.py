@@ -7,6 +7,7 @@ class Compositions(db.Model):
     compositions = db.Column(db.String(255), nullable=False)
     compositions_striped = db.Column(db.String(255), nullable=True)
     dosage_form = db.Column(db.String(50), default="", nullable=True)
+    status = db.Column(db.Integer, nullable=False, default=0)
 
 
 class PriceCap(db.Model):

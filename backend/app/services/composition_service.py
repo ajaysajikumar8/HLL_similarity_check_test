@@ -216,11 +216,12 @@ def match_compositions(df):
                 try:
                     price_cap_query = (
                         db.session.query(PriceCap)
-                        .filter(
-                            PriceCap.compositions_striped
-                            == best_match.compositions_striped
+                        .order_by(
+                            func.levenshtein(
+                                PriceCap.compositions_striped, striped_composition
+                            )
                         )
-                        .limit(1)
+                        .limit(4)
                     )
                     price_cap_result = price_cap_query.first()
 

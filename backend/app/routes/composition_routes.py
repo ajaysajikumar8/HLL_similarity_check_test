@@ -49,7 +49,6 @@ def match_compositions_api():
         # print(json_data)  # Print the JSON data to the console
 
         json_data = json.dumps(clean_data, indent=4)
-        print(json_data)
 
         return Response(json_data, mimetype="application/json")
 

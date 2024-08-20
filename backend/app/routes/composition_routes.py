@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, Response
 import pandas as pd
 from ..services.composition_service import (
     match_compositions,
@@ -7,8 +7,12 @@ from ..services.composition_service import (
 )
 import logging
 from ..utils import replace_nan_with_none
+import json
 
 composition_bp = Blueprint("composition", __name__)
+
+
+from json import JSONDecodeError
 
 
 @composition_bp.route("/match-compositions", methods=["POST"])
@@ -25,9 +29,7 @@ def match_compositions_api():
         return jsonify({"error": "Error reading Excel file"})
 
     try:
-        matched_compositions, unmatched_compositions, modified_df = match_compositions(
-            df
-        )
+        matched_compositions, unmatched_compositions = match_compositions(df)
     except Exception as e:
         logging.getLogger(__name__).error(f"Error performing string matching: {e}")
         return jsonify({"error": "Error performing string matching"})
@@ -37,9 +39,24 @@ def match_compositions_api():
         "unmatched_compositions": unmatched_compositions,
     }
 
-    clean_data = replace_nan_with_none(data)
+    try:
+        clean_data = replace_nan_with_none(data)
 
-    return jsonify(clean_data)
+        # Convert clean_data to a JSON string and print it
+        json_data = json.dumps(
+            clean_data, indent=4
+        )  # Convert to JSON string for printing
+        # print(json_data)  # Print the JSON data to the console
+
+        json_data = json.dumps(clean_data, indent=4)
+        print(json_data)
+
+        return Response(json_data, mimetype="application/json")
+
+    except Exception as e:
+        error_data = {"error": str(e)}
+        json_error_data = json.dumps(error_data)
+        return Response(json_error_data, mimetype="application/json")
 
 
 @composition_bp.route("/get-all-compositions")
@@ -69,15 +86,18 @@ def get_all_compositions_route():
 
 @composition_bp.route("/add-new-composition", methods=["POST"])
 def add_new_composition():
-    content_code = request.form.get("content_code", None)
-    composition_name = request.form.get("composition_name")
-    dosage_form = request.form.get("dosage_form", None)
+    try:
+        content_code = request.form.get("content_code", None)
+        composition_name = request.form.get("composition_name")
+        dosage_form = request.form.get("dosage_form", None)
 
-    if not composition_name:
-        return jsonify({"error": "Composition name is required"}), 400
+        if not composition_name:
+            return jsonify({"error": "Composition name is required"}), 400
 
-    new_composition = add_composition(content_code, composition_name, dosage_form)
-    if new_composition:
-        return jsonify({"message": "Composition added successfully"})
-    else:
-        return jsonify({"error": "Error adding new composition"}), 500
+        new_composition = add_composition(content_code, composition_name, dosage_form)
+        if new_composition:
+            return jsonify({"message": "Composition added successfully"})
+        else:
+            return jsonify({"error": "Error adding new composition"}), 500
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error while adding composition: {e}")

@@ -133,7 +133,7 @@ def match_compositions(df):
         dict: API response containing matched and unmatched compositions.
     """
     try:
-        df["Composition"] = preprocess_data(df["Composition"])
+        df["composition"] = preprocess_data(df["composition"])
     except Exception as e:
         server_logger.error(
             f"Some error within the file, Issues with the file format, not able to identify the column header: {e}"

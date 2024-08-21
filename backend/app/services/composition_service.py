@@ -297,7 +297,7 @@ def add_composition(composition_name, content_code=None, dosage_form=None, statu
         return new_composition
     except Exception as e:
         db.session.rollback()
-        logging.getLogger(__name__).error(f"Error adding new composition: {e}")
+        composition_crud_logger.error(f"Error adding new composition: {e}")
         return None
 
 
@@ -330,7 +330,7 @@ def update_composition(
         return composition
     except Exception as e:
         db.session.rollback()
-        logging.getLogger(__name__).error(f"Error updating composition: {e}")
+        composition_crud_logger.error(f"Error updating composition: {e}")
         return None
 
 
@@ -358,4 +358,4 @@ def delete_composition(composition_id):
             db.session.commit()
     except Exception as e:
         db.session.rollback()
-        logging.getLogger(__name__).error(f"Error deleting composition: {e}")
+        composition_crud_logger.error(f"Error deleting composition: {e}")

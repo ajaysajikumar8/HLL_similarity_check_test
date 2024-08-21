@@ -4,15 +4,16 @@ from ..services.composition_service import (
     match_compositions,
     get_all_compositions,
     add_composition,
+    update_composition_status,
+    delete_composition,
+    get_composition_by_id,
+    update_composition,
 )
 import logging
 from ..utils import replace_nan_with_none
 import json
 
 composition_bp = Blueprint("composition", __name__)
-
-
-from json import JSONDecodeError
 
 
 @composition_bp.route("/match-compositions", methods=["POST"])
@@ -85,19 +86,109 @@ def get_all_compositions_route():
 
 
 @composition_bp.route("/add-new-composition", methods=["POST"])
-def add_new_composition():
+def add_new_composition_as_approver_route():
     try:
         content_code = request.form.get("content_code", None)
         composition_name = request.form.get("composition_name")
         dosage_form = request.form.get("dosage_form", None)
+        status = 1
 
         if not composition_name:
             return jsonify({"error": "Composition name is required"}), 400
 
-        new_composition = add_composition(content_code, composition_name, dosage_form)
+        new_composition = add_composition(composition_name, content_code, dosage_form, status)
         if new_composition:
             return jsonify({"message": "Composition added successfully"})
         else:
             return jsonify({"error": "Error adding new composition"}), 500
     except Exception as e:
         logging.getLogger(__name__).error(f"Error while adding composition: {e}")
+
+
+# Fetch a composition by ID
+@composition_bp.route("/get-composition/<int:composition_id>")
+def get_composition(composition_id):
+    composition = get_composition_by_id(composition_id)
+    if composition:
+        composition_data = {
+            "id": composition.id,
+            "content_code": composition.content_code,
+            "compositions": composition.compositions,
+            "compositions_striped": composition.compositions_striped,
+            "dosage_form": composition.dosage_form,
+            "status": composition.status,
+        }
+        return jsonify(composition_data)
+    else:
+        return jsonify({"error": "Composition not found"}), 404
+
+
+@composition_bp.route("/update-composition/<int:composition_id>", methods=["PUT"])
+def update_composition_route(composition_id):
+    try:
+        content_code = request.form.get("content_code", None)
+        composition_name = request.form.get("composition_name", None)
+        dosage_form = request.form.get("dosage_form", None)
+
+        updated_composition = update_composition(
+            composition_id, content_code, composition_name, dosage_form
+        )
+        if updated_composition:
+            return jsonify({"message": "Composition updated successfully"})
+        else:
+            return jsonify({"error": "Error updating composition"}), 500
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error while updating composition: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+
+# Delete a composition (CRUD delete)
+@composition_bp.route("/delete-composition/<int:composition_id>", methods=["DELETE"])
+def delete_composition_route(composition_id):
+    try:
+        delete_composition(composition_id)
+        return jsonify({"message": "Composition deleted successfully"})
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error while deleting composition: {e}")
+        return jsonify({"error": "Error deleting composition"}), 500
+
+
+# Request a composition (status 0)
+@composition_bp.route("/request-composition", methods=["POST"])
+def request_composition():
+    try:
+        content_code = request.form.get("content_code", None)
+        composition_name = request.form.get("composition_name")
+        dosage_form = request.form.get("dosage_form", None)
+
+        new_composition = add_composition(composition_name, content_code, dosage_form)
+        if new_composition:
+            return jsonify(
+                {"message": "Composition requested successfully", "status": 0}
+            )
+        else:
+            return jsonify({"error": "Error requesting composition"}), 500
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error while requesting composition: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+
+
+@composition_bp.route("/approve-composition", methods=["POST"])
+def approve_composition():
+    try:
+        composition_id = request.json.get("composition_id")
+
+        if not composition_id:
+            return jsonify({"error": "Composition ID is required"}), 400
+
+        updated_composition = update_composition_status(composition_id, 1)
+
+        if updated_composition:
+            return jsonify({"message": "Composition approved", "status": 1})
+        else:
+            return jsonify({"error": "Error approving composition"}), 500
+
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error approving composition: {e}")
+        return jsonify({"error": str(e)}), 500

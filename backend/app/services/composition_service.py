@@ -283,13 +283,13 @@ def match_compositions(df):
     return matched_compositions, unmatched_compositions
 
 
-def add_composition(content_code, composition_name, dosage_form):
+def add_composition(composition_name, content_code=None, dosage_form=None, status = 0):
     try:
         new_composition = Compositions(
             content_code=content_code,
             compositions=composition_name,
-            compositions_striped="".join(composition_name.split()).lower(),
             dosage_form=dosage_form,
+            status=status,
         )
         db.session.add(new_composition)
         db.session.commit()
@@ -298,3 +298,63 @@ def add_composition(content_code, composition_name, dosage_form):
         db.session.rollback()
         logging.getLogger(__name__).error(f"Error adding new composition: {e}")
         return None
+
+
+def get_composition_by_id(composition_id):
+    try:
+        return Compositions.query.get(composition_id)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error fetching composition by ID: {e}")
+        return None
+
+
+def update_composition(
+    composition_id, content_code=None, composition_name=None, dosage_form=None
+):
+    try:
+        composition = Compositions.query.get(composition_id)
+        if not composition:
+            return None
+
+        composition.content_code = (
+            content_code if content_code else composition.content_code
+        )
+        composition.compositions = (
+            composition_name if composition_name else composition.compositions
+        )
+        composition.dosage_form = (
+            dosage_form if dosage_form else composition.dosage_form
+        )
+        db.session.commit()
+        return composition
+    except Exception as e:
+        db.session.rollback()
+        logging.getLogger(__name__).error(f"Error updating composition: {e}")
+        return None
+
+
+def update_composition_status(composition_id, status):
+    try:
+        composition = Compositions.query.get(composition_id)
+        if not composition:
+            return None
+
+        composition.status = status
+        db.session.commit()
+        return composition
+
+    except Exception as e:
+        db.session.rollback()
+        logging.getLogger(__name__).error(f"Error updating composition status: {e}")
+        return None
+
+
+def delete_composition(composition_id):
+    try:
+        composition = Compositions.query.get(composition_id)
+        if composition:
+            db.session.delete(composition)
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logging.getLogger(__name__).error(f"Error deleting composition: {e}")

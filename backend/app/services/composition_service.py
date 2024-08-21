@@ -21,7 +21,7 @@ def get_all_compositions():
         List: All the compositions from the DB.
     """
     try:
-        compositions = Compositions.query.filter(Compositions.status == 1).limit(100)
+        compositions = Compositions.query.filter(Compositions.status == 1).all()
         return compositions
     except Exception as e:
         logging.getLogger(__name__).error(f"Error retrieving all compositions: {e}")

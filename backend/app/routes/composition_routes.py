@@ -15,6 +15,8 @@ import json
 
 composition_bp = Blueprint("composition", __name__)
 
+composition_crud_logger = logging.getLogger("composition_crud")
+
 
 @composition_bp.route("/match-compositions", methods=["POST"])
 def match_compositions_api():
@@ -94,13 +96,17 @@ def add_new_composition_as_approver_route():
         status = 1
 
         if not composition_name:
+            composition_crud_logger.error(f"Composition name is required")
             return jsonify({"error": "Composition name is required"}), 400
 
-        new_composition = add_composition(composition_name, content_code, dosage_form, status)
-        if new_composition:
-            return jsonify({"message": "Composition added successfully"})
-        else:
-            return jsonify({"error": "Error adding new composition"}), 500
+        try: 
+            new_composition = add_composition(composition_name, content_code, dosage_form, status)
+            if new_composition:
+                return jsonify({"message": "Composition added successfully"})
+            else:
+                return jsonify({"error": "Error adding new composition"}), 500
+        except Exception as e: 
+            composition_crud_logger.error(f"Composition Add Error: {e}")
     except Exception as e:
         logging.getLogger(__name__).error(f"Error while adding composition: {e}")
 
@@ -120,6 +126,7 @@ def get_composition(composition_id):
         }
         return jsonify(composition_data)
     else:
+        composition_crud_logger.info(f"Composition not found. Composition id: {composition_id}")
         return jsonify({"error": "Composition not found"}), 404
 
 
@@ -130,15 +137,19 @@ def update_composition_route(composition_id):
         composition_name = request.form.get("composition_name", None)
         dosage_form = request.form.get("dosage_form", None)
 
-        updated_composition = update_composition(
-            composition_id, content_code, composition_name, dosage_form
-        )
-        if updated_composition:
-            return jsonify({"message": "Composition updated successfully"})
-        else:
-            return jsonify({"error": "Error updating composition"}), 500
+        try: 
+            updated_composition = update_composition(
+                composition_id, content_code, composition_name, dosage_form
+            )
+            if updated_composition:
+                return jsonify({"message": "Composition updated successfully"}), 200
+            else:
+                composition_crud_logger.error(f"Cannot Update, No Composition found with id: {composition_id}")
+                return jsonify({"error": "No Composition found to update"}), 404
+        except Exception as e:
+            composition_crud_logger.error(f"Error updating the composition: {e}")
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error while updating composition: {e}")
+        composition_crud_logger.error(f"Error while updating composition: {e}")
         return jsonify({"error": "Server error"}), 500
 
 
@@ -149,7 +160,7 @@ def delete_composition_route(composition_id):
         delete_composition(composition_id)
         return jsonify({"message": "Composition deleted successfully"})
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error while deleting composition: {e}")
+        composition_crud_logger.error(f"Error while deleting composition: {e}")
         return jsonify({"error": "Error deleting composition"}), 500
 
 
@@ -160,16 +171,18 @@ def request_composition():
         content_code = request.form.get("content_code", None)
         composition_name = request.form.get("composition_name")
         dosage_form = request.form.get("dosage_form", None)
-
-        new_composition = add_composition(composition_name, content_code, dosage_form)
-        if new_composition:
-            return jsonify(
-                {"message": "Composition requested successfully", "status": 0}
-            )
-        else:
-            return jsonify({"error": "Error requesting composition"}), 500
+        try: 
+            new_composition = add_composition(composition_name, content_code, dosage_form)
+            if new_composition:
+                return jsonify(
+                    {"message": "Composition requested successfully", "status": 0}
+                )
+            else:
+                return jsonify({"error": "Error requesting composition"}), 500
+        except Exception as e:
+            composition_crud_logger.error(f"Error while requesting composition: {e}")
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error while requesting composition: {e}")
+        composition_crud_logger.error(f"Error while requesting composition: {e}")
         return jsonify({"error": "Server error"}), 500
 
 
@@ -182,13 +195,16 @@ def approve_composition():
         if not composition_id:
             return jsonify({"error": "Composition ID is required"}), 400
 
-        updated_composition = update_composition_status(composition_id, 1)
+        try: 
+            updated_composition = update_composition_status(composition_id, 1)
 
-        if updated_composition:
-            return jsonify({"message": "Composition approved", "status": 1})
-        else:
-            return jsonify({"error": "Error approving composition"}), 500
+            if updated_composition:
+                return jsonify({"message": "Composition approved", "status": 1})
+            else:
+                return jsonify({"error": "Error approving composition"}), 500
+        except Exception as e: 
+            composition_crud_logger.error(f"Error approving composition: {e}")
 
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error approving composition: {e}")
+        composition_crud_logger.error(f"Error approving composition: {e}")
         return jsonify({"error": str(e)}), 500

@@ -12,6 +12,7 @@ unmatched_compositions_logger = logging.getLogger("unmatched_compositions")
 rough_compositions_logger = logging.getLogger("rough_compositions")
 parse_composition_logger = logging.getLogger("parse_composition")
 price_cap_logger = logging.getLogger("price_cap")
+composition_crud_logger = logging.getLogger("composition_crud")
 
 
 def get_all_compositions():

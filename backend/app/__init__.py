@@ -24,6 +24,7 @@ def create_app():
     setup_logging("rough_compositions.log", "rough_compositions")
     setup_logging("parse_composition.log", "parse_composition")
     setup_logging("price_cap.log", "price_cap")
+    setup_logging("composition_crud.log", "composition_crud")
 
     # Register blueprints
     from .routes.composition_routes import composition_bp

@@ -60,8 +60,11 @@ def get_all_compositions_route():
     compositions = get_all_compositions()
     if compositions is not None:
         try:
-            compositions_data = [
-                {
+            approved_compositions = []
+            pending_compositions = []
+
+            for composition in compositions:
+                composition_data = {
                     "id": composition.id,
                     "content_code": composition.content_code,
                     "compositions": composition.compositions,
@@ -69,16 +72,27 @@ def get_all_compositions_route():
                     "dosage_form": composition.dosage_form,
                     "status": composition.status,
                 }
-                for composition in compositions
-            ]
-            return jsonify({"compositions": compositions_data})
+
+                if composition.status == 1:
+                    approved_compositions.append(composition_data)
+                else:
+                    pending_compositions.append(composition_data)
+
+            return jsonify(
+                {
+                    "compositions": {
+                        "approved": approved_compositions,
+                        "pending": pending_compositions,
+                    }
+                }
+            )
         except Exception as e:
             logging.getLogger(__name__).error(
-                f"Error retrieving compositions from DB: {e}"
+                f"Error processing compositions data: {e}"
             )
-            return jsonify({"error": "Error processing compositions data"})
+            return jsonify({"error": "Error processing compositions data"}), 500
     else:
-        return jsonify({"error": "Error retrieving compositions"})
+        return jsonify({"error": "Error retrieving compositions"}), 500
 
 
 @composition_bp.route("/add-new-composition", methods=["POST"])

@@ -70,6 +70,7 @@ def compare_price_similar_items_route():
             400,
         )
     try:
+        logging.getLogger("price_cap").info(composition)
         composition["df_compositions"] = similar_item
         composition["df_unit_rate_to_hll_excl_of_tax"] = float(composition["df_unit_rate_to_hll_excl_of_tax"])
         striped_composition = sort_and_strip_composition(similar_item)

@@ -28,6 +28,14 @@ def get_all_compositions():
         return None
 
 
+def sort_and_strip_composition(composition):
+    sorted_molecules = sorted(
+        [molecule.strip().lower() for molecule in re.split(r"[+|]", composition)]
+    )
+    modified_composition = " + ".join(sorted_molecules)
+    return modified_composition
+
+
 def preprocess_data(data: list) -> list:
     """
     Split the composition and sort the molecule in ascending manner. The molecules are striped and converted to lower case.
@@ -40,11 +48,10 @@ def preprocess_data(data: list) -> list:
     """
     modified_data = []
     for composition in data:
-        sorted_molecules = sorted(
-            [molecule.strip().lower() for molecule in re.split(r"[+|]", composition)]
-        )
-        modified_composition = " + ".join(sorted_molecules)
-        modified_data.append(modified_composition)
+
+        composition = sort_and_strip_composition(composition)
+        modified_data.append(composition)
+
     return modified_data
 
 
@@ -122,22 +129,210 @@ def is_match(composition1: str, composition2: str) -> bool:
     return parsed1 == parsed2
 
 
+def preprocess_dataframe(df):
+    """
+    Preprocess the composition data in the dataframe.
+
+    Args:
+        df (pd.DataFrame): Data from the Excel sheet.
+
+    Returns:
+        pd.DataFrame: Preprocessed dataframe.
+    """
+
+    try:
+        df["composition"] = preprocess_data(df["composition"])
+        
+        return df
+    except Exception as e:
+        server_logger.error(
+            f"Issues with file format, not able to identify the column header: {e}"
+        )
+        raise
+
+
+def fetch_similar_compositions(striped_composition):
+    """
+    Fetch similar compositions from the database.
+
+    Args:
+        striped_composition (str): The stripped composition string from the dataframe.
+
+    Returns:
+        List: A list of similar compositions from the database.
+    """
+    try:
+        query = (
+            db.session.query(Compositions)
+            .filter(Compositions.status == 1)
+            .order_by(
+                func.levenshtein(Compositions.compositions_striped, striped_composition)
+            )
+            .limit(20)
+        )
+        return query.all()
+    except Exception as e:
+        server_logger.error(f"Error fetching similar compositions: {e}")
+        return []
+
+
+def calculate_similarity(striped_composition, db_composition_striped):
+    """
+    Calculate the similarity between two compositions.
+
+    Args:
+        striped_composition (str): The stripped composition from the dataframe.
+        db_composition_striped (str): The stripped composition from the database.
+
+    Returns:
+        int: Similarity score.
+    """
+    return fuzz.token_sort_ratio(striped_composition, db_composition_striped)
+
+
+def find_best_match(similar_items, striped_composition):
+    """
+    Find the best match from a list of similar items.
+
+    Args:
+        similar_items (List): List of similar compositions from the database.
+        striped_composition (str): The stripped composition string from the dataframe.
+
+    Returns:
+        Tuple: Best match and maximum similarity score.
+    """
+    best_match = None
+    max_similarity = 0
+
+    for res in similar_items:
+        similarity = calculate_similarity(striped_composition, res.compositions_striped)
+        if similarity > max_similarity and is_match(
+            striped_composition, res.compositions_striped
+        ):
+            max_similarity = similarity
+            best_match = res
+
+    return best_match, max_similarity
+
+
+def match_price_cap(composition, striped_composition):
+    """
+    Match the composition with the price cap data and calculate price difference.
+
+    Args:
+        composition (dict): The composition details from the dataframe.
+        striped_composition (str): The stripped composition string from the dataframe.
+
+    Returns:
+        dict: Price comparison result.
+    """
+    try:
+        price_cap_query = (
+            db.session.query(PriceCap)
+            .order_by(
+                func.levenshtein(PriceCap.compositions_striped, striped_composition)
+            )
+            .limit(4)
+        )
+        price_cap_result = price_cap_query.first()
+
+        if price_cap_result:
+            df_dosage_form = composition["df_dosage_form"].lower().strip()
+            df_packing_unit = composition["df_packing_unit"].lower().strip()
+
+            if (
+                df_dosage_form == price_cap_result.dosage_form.lower().strip()
+                and df_packing_unit == price_cap_result.packing_unit.lower().strip()
+            ):
+                price_diff = (
+                    price_cap_result.price_cap
+                    - composition["df_unit_rate_to_hll_excl_of_tax"]
+                )
+                status = "Below" if price_diff > 0 else "Above"
+
+                return {"price_diff": float(price_diff), "status": status}
+            else:
+                return {
+                    "price_diff": None,
+                    "status": "No Match on Dosage or Packing Unit",
+                }
+        else:
+            return {"price_diff": None, "status": "No Price Found"}
+    except Exception as e:
+        price_cap_logger.error(f"Error while matching the price: {e}")
+        return {"price_diff": None, "status": "Error while fetching price"}
+
+
+def match_single_composition(row):
+    """
+    Match a single composition from the dataframe with the database.
+
+    Args:
+        row (pd.Series): A row from the dataframe.
+
+    Returns:
+        Tuple: Matched composition data and list of unmatched compositions.
+    """
+    composition = {
+        "df_sl_no": row["sl_no"],
+        "df_brand_name": row["brand_name"],
+        "df_compositions": row["composition"],
+        "df_name_of_manufacturer": row["name_of_manufacturer"],
+        "df_UoM": row["u_o_m"],
+        "df_dosage_form": row["dosage_form"],
+        "df_packing_unit": row["packing_unit"],
+        "df_GST": row["gst"],
+        "df_MRP_incl_tax": row["mrp_incl_of_tax"],
+        "df_unit_rate_to_hll_excl_of_tax": row["unit_rate_to_hll_excl_of_tax"],
+        "df_unit_rate_to_hll_incl_of_tax": row["unit_rate_to_hll_incl_of_tax"],
+        "df_hsn_code": row["hsn_code"],
+        "df_margin_percent_incl_of_tax": row["margin"],
+    }
+
+    striped_composition = composition["df_compositions"].replace(" ", "")
+    similar_items = fetch_similar_compositions(striped_composition)
+    best_match, max_similarity = find_best_match(similar_items, striped_composition)
+
+    if best_match and max_similarity > 98:
+        composition["df_compositions"] = best_match.compositions
+        composition["price_comparison"] = match_price_cap(
+            composition, striped_composition
+        )
+        return composition, None
+    else:
+        similar_items_score = sorted(
+            [
+                {
+                    "db_composition": res.compositions,
+                    "similarity_score": calculate_similarity(
+                        striped_composition, res.compositions_striped
+                    ),
+                }
+                for res in similar_items
+            ],
+            key=lambda x: x["similarity_score"],
+            reverse=True,
+        )
+        return None, {
+            "user_composition": composition,
+            "similar_items": similar_items_score,
+        }
+
+
 def match_compositions(df):
     """
     Checks the compositions in the dataframe and checks if they match with the DB.
 
     Args:
-        df (dataframe): Data from the excel sheet.
+        df (pd.DataFrame): Data from the Excel sheet.
 
     Returns:
         dict: API response containing matched and unmatched compositions.
     """
     try:
-        df["composition"] = preprocess_data(df["composition"])
+        df = preprocess_dataframe(df)
     except Exception as e:
-        server_logger.error(
-            f"Some error within the file, Issues with the file format, not able to identify the column header: {e}"
-        )
+        return {"error": str(e)}
 
     preprocess_compositions_in_db("Compositions")
     preprocess_compositions_in_db("Price_Cap")
@@ -145,146 +340,17 @@ def match_compositions(df):
     matched_compositions = []
     unmatched_compositions = []
 
-    for index, row in df.iterrows():
-        composition = {
-            "df_sl_no": row["sl_no"],
-            "df_brand_name": row["brand_name"],
-            "df_compositions": row["composition"],
-            "df_name_of_manufacturer": row["name_of_manufacturer"],
-            "df_UoM": row["u_o_m"],
-            "df_dosage_form": row["dosage_form"],
-            "df_packing_unit": row["packing_unit"],
-            "df_GST": row["gst"],
-            "df_MRP_incl_tax": row["mrp_incl_of_tax"],
-            "df_unit_rate_to_hll_excl_of_tax": row["unit_rate_to_hll_excl_of_tax"],
-            "df_unit_rate_to_hll_incl_of_tax": row["unit_rate_to_hll_incl_of_tax"],
-            "df_hsn_code": row["hsn_code"],
-            "df_margin_percent_incl_of_tax": row["margin"],
-        }
-
-        striped_composition = composition["df_compositions"].replace(" ", "")
-        try:
-            query = (
-                db.session.query(Compositions)
-                .filter(Compositions.status == 1)
-                .order_by(
-                    func.levenshtein(
-                        Compositions.compositions_striped, striped_composition
-                    )
-                )
-                .limit(20)
-            )
-            result = query.all()
-
-            best_match = None
-            max_similarity = 0
-            similar_items_score = []
-
-            for res in result:
-                db_composition = res.compositions
-                db_composition_striped = res.compositions_striped
-                similarity = fuzz.token_sort_ratio(
-                    striped_composition, db_composition_striped
-                )
-                # rough_compositions_logger.info(
-                #     f"User-Inputted: {df_compositions}; DB Composition: {db_composition}; with similarity score: {similarity}"
-                # )
-                # rough_compositions_logger.info(
-                #     f"Striped User-Input: {striped_composition}; DB Stripped Composition: {db_composition_striped}; with similarity score: {similarity} \n"
-                # )
-
-                if similarity > max_similarity and is_match(
-                    striped_composition, db_composition_striped
-                ):
-                    max_similarity = similarity
-                    best_match = res
-
-                similar_items_score.append(
-                    {"db_composition": db_composition, "similarity_score": similarity}
-                )
-
-            similar_items_score = sorted(
-                similar_items_score, key=lambda x: x["similarity_score"], reverse=True
-            )
-
-            if best_match and max_similarity > 98:
-                composition["df_compositions"] = best_match.compositions
-
-                # Implement the price cap
-                try:
-                    price_cap_query = (
-                        db.session.query(PriceCap)
-                        .order_by(
-                            func.levenshtein(
-                                PriceCap.compositions_striped, striped_composition
-                            )
-                        )
-                        .limit(4)
-                    )
-                    price_cap_result = price_cap_query.first()
-
-                    if price_cap_result:
-                        df_dosage_form = composition["df_dosage_form"].lower().strip()
-                        df_packing_unit = composition["df_packing_unit"].lower().strip()
-
-                        if (
-                            df_dosage_form
-                            == price_cap_result.dosage_form.lower().strip()
-                            and df_packing_unit
-                            == price_cap_result.packing_unit.lower().strip()
-                        ):
-                            price_diff = (
-                                price_cap_result.price_cap
-                                - composition["df_unit_rate_to_hll_excl_of_tax"]
-                            )
-
-                            price_diff = float(price_diff)
-                            status = "Below" if price_diff > 0 else "Above"
-
-                            composition["price_comparison"] = {
-                                "price_diff": price_diff,
-                                "status": status,
-                            }
-                        else:
-                            composition["price_comparison"] = {
-                                "price_diff": None,
-                                "status": "No Match on Dosage or Packing Unit",
-                            }
-                    else:
-                        composition["price_comparison"] = {
-                            "price_diff": None,
-                            "status": "No Price Found",
-                        }
-
-                except Exception as e:
-                    price_cap_logger.error(f"Error while matching the price: {e}")
-                    composition["price_comparison"] = {
-                        "price_diff": None,
-                        "status": "Error while fetching price",
-                    }
-
-                matched_compositions.append(composition)
-                # composition_match_logger.info(
-                #     f"User-entered composition: {df_compositions}, Matched composition: {best_match}, Match score: {max_similarity}"
-                # )
-            else:
-                unmatched_compositions.append(
-                    {
-                        "user_composition": composition,
-                        "similar_items": similar_items_score,
-                    }
-                )
-            # unmatched_compositions_logger.info(
-            #         f"Unmatched composition: {df_compositions}, Similarity percentage: {similarity}"
-            #     )
-        except Exception as e:
-            server_logger.error(f"Error matching compositions: {e}")
-            continue
+    for _, row in df.iterrows():
+        matched, unmatched = match_single_composition(row)
+        if matched:
+            matched_compositions.append(matched)
+        else:
+            unmatched_compositions.append(unmatched)
 
     return matched_compositions, unmatched_compositions
 
 
-def add_composition(composition_name, content_code=None, dosage_form=None, status = 0):
+def add_composition(composition_name, content_code=None, dosage_form=None, status=0):
     try:
         new_composition = Compositions(
             content_code=content_code,

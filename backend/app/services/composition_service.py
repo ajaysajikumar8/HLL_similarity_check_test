@@ -28,6 +28,14 @@ def get_all_compositions():
         return None
 
 
+def sort_and_strip_composition(composition):
+    sorted_molecules = sorted(
+        [molecule.strip().lower() for molecule in re.split(r"[+|]", composition)]
+    )
+    modified_composition = " + ".join(sorted_molecules)
+    return modified_composition
+
+
 def preprocess_data(data: list) -> list:
     """
     Split the composition and sort the molecule in ascending manner. The molecules are striped and converted to lower case.
@@ -40,11 +48,10 @@ def preprocess_data(data: list) -> list:
     """
     modified_data = []
     for composition in data:
-        sorted_molecules = sorted(
-            [molecule.strip().lower() for molecule in re.split(r"[+|]", composition)]
-        )
-        modified_composition = " + ".join(sorted_molecules)
-        modified_data.append(modified_composition)
+
+        composition = sort_and_strip_composition(composition)
+        modified_data.append(composition)
+
     return modified_data
 
 
@@ -132,8 +139,10 @@ def preprocess_dataframe(df):
     Returns:
         pd.DataFrame: Preprocessed dataframe.
     """
+
     try:
         df["composition"] = preprocess_data(df["composition"])
+        
         return df
     except Exception as e:
         server_logger.error(

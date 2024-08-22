@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify, Response
 import pandas as pd
 from ..services.composition_service import (
+    sort_and_strip_composition,
+    match_price_cap,
     match_compositions,
     get_all_compositions,
     add_composition,
@@ -50,6 +52,38 @@ def match_compositions_api():
         return Response(json_data, mimetype="application/json")
 
     except Exception as e:
+        error_data = {"error": str(e)}
+        json_error_data = json.dumps(error_data)
+        return Response(json_error_data, mimetype="application/json")
+
+
+@composition_bp.route("/similar-items/compare-price", methods=["POST"])
+def compare_price_similar_items_route():
+    composition = request.json.get("composition")
+    similar_item = request.json.get("similar_item")
+
+    if not composition and not similar_item:
+        return (
+            jsonify(
+                {"error": "composition object and similar composition name required"}
+            ),
+            400,
+        )
+    try:
+        composition["df_compositions"] = similar_item
+        striped_composition = sort_and_strip_composition(similar_item)
+        composition["price_comparison"] = match_price_cap(
+            composition, striped_composition
+        )
+
+        clean_data = replace_nan_with_none(composition)
+        json_data = json.dumps(clean_data, indent=4)
+        return Response(json_data, mimetype="application/json")
+
+    except Exception as e:
+        logging.getLogger("price_cap").error(
+            f"Error comparing price for similar item: {e}"
+        )
         error_data = {"error": str(e)}
         json_error_data = json.dumps(error_data)
         return Response(json_error_data, mimetype="application/json")

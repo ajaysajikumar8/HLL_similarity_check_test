@@ -101,37 +101,20 @@ def compare_price_similar_items_route():
         return Response(json_error_data, mimetype="application/json")
 
 
-@composition_bp.route("/get-all-compositions")
-def get_all_compositions_route():
-    compositions = get_all_compositions()
+@composition_bp.route("/get-all-compositions/", defaults={"search_keyword": ""})
+@composition_bp.route("/get-all-compositions/<search_keyword>")
+def get_all_compositions_route(search_keyword):
+    compositions = get_all_compositions(search_keyword)
     if compositions is not None:
         try:
-            approved_compositions = []
-            pending_compositions = []
-
-            for composition in compositions:
-                composition_data = {
-                    "id": composition.id,
-                    "content_code": composition.content_code,
-                    "compositions": composition.compositions,
-                    "compositions_striped": composition.compositions_striped,
-                    "dosage_form": composition.dosage_form,
-                    "status": composition.status,
+            # Construct the response based on the compositions data
+            response = {
+                "compositions": {
+                    "approved": compositions.get(1, {"compositions": [], "count": 0}),
+                    "pending": compositions.get(0, {"compositions": [], "count": 0}),
                 }
-
-                if composition.status == 1:
-                    approved_compositions.append(composition_data)
-                else:
-                    pending_compositions.append(composition_data)
-
-            return jsonify(
-                {
-                    "compositions": {
-                        "approved": approved_compositions,
-                        "pending": pending_compositions,
-                    }
-                }
-            )
+            }
+            return jsonify(response)
         except Exception as e:
             logging.getLogger(__name__).error(
                 f"Error processing compositions data: {e}"

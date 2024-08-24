@@ -50,8 +50,8 @@ def get_all_compositions(search_keyword="", limit=10, offset=0):
                     json_agg(
                         json_build_object(
                             'id', id,
-                            'composition', compositions,
-                            'composition_striped', compositions_striped,
+                            'compositions', compositions,
+                            'compositions_striped', compositions_striped,
                             'content_code', content_code
                         )
                     ) AS compositions

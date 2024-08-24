@@ -15,7 +15,7 @@ price_cap_logger = logging.getLogger("price_cap")
 composition_crud_logger = logging.getLogger("composition_crud")
 
 
-def get_all_compositions():
+def get_all_compositions(search_keyword):
     """
     Executes a raw SQL query to get all compositions with their status,
     aggregated and grouped by status.
@@ -25,7 +25,7 @@ def get_all_compositions():
     """
     try:
         query = text(
-            """
+            f"""
             SELECT 
                 status,
                 json_build_object(
@@ -41,6 +41,8 @@ def get_all_compositions():
                 ) AS result
             FROM 
                 compositions
+            WHERE
+                compositions LIKE '%{search_keyword}%' OR content_code LIKE '%{search_keyword}%'
             GROUP BY 
                 status;
             """

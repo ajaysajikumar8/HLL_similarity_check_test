@@ -101,9 +101,10 @@ def compare_price_similar_items_route():
         return Response(json_error_data, mimetype="application/json")
 
 
-@composition_bp.route("/get-all-compositions")
-def get_all_compositions_route():
-    compositions = get_all_compositions()
+@composition_bp.route("/get-all-compositions/", defaults={'search_keyword': ""})
+@composition_bp.route("/get-all-compositions/<search_keyword>")
+def get_all_compositions_route(search_keyword):
+    compositions = get_all_compositions(search_keyword)
     if compositions is not None:
         try:
             return jsonify(

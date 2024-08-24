@@ -28,15 +28,12 @@ def get_all_compositions():
             """
             SELECT 
                 status,
-                json_build_object(
-                    'count', count(*),
-                    'compositions', json_agg(
-                        json_build_object(
-                            'id', id,
-                            'composition', compositions,
-                            'composition_striped', compositions_striped,
-                            'content_code', content_code
-                        )
+                json_agg(
+                    json_build_object(
+                        'id', id,
+                        'composition', compositions,
+                        'composition_striped', compositions_striped,
+                        'content_code', content_code
                     )
                 ) AS result
             FROM 

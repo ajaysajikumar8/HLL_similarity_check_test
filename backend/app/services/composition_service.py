@@ -15,46 +15,84 @@ price_cap_logger = logging.getLogger("price_cap")
 composition_crud_logger = logging.getLogger("composition_crud")
 
 
-def get_all_compositions(search_keyword):
+def get_all_compositions(search_keyword="", limit=10, offset=0):
     """
     Executes a raw SQL query to get all compositions with their status,
-    aggregated and grouped by status.
+    aggregated and grouped by status, including search functionality.
+
+    Args:
+        search_keyword (str): Keyword to search in compositions and content_code.
+        limit (int): The number of records to return per page.
+        offset (int): The number of records to skip before starting to return results.
 
     Returns:
         dict: A dictionary containing the compositions grouped by status.
     """
     try:
         query = text(
-            f"""
-            SELECT 
-                status,
-                json_build_object(
-                    'count', count(*),
-                    'compositions', json_agg(
+            """
+            WITH filtered_compositions AS (
+                SELECT 
+                    id,
+                    status,
+                    compositions,
+                    compositions_striped,
+                    content_code,
+                    ROW_NUMBER() OVER (PARTITION BY status ORDER BY id) AS row_num
+                FROM 
+                    compositions
+                WHERE
+                    compositions ILIKE :search_keyword OR content_code ILIKE :search_keyword
+            ),
+            paginated_compositions AS (
+                SELECT 
+                    status,
+                    json_agg(
                         json_build_object(
                             'id', id,
-                            'compositions', compositions,
-                            'compositions_striped', compositions_striped,
+                            'composition', compositions,
+                            'composition_striped', compositions_striped,
                             'content_code', content_code
                         )
-                    )
+                    ) AS compositions
+                FROM 
+                    filtered_compositions
+                WHERE 
+                    row_num > :offset AND row_num <= :limit + :offset
+                GROUP BY 
+                    status
+            ),
+            total_counts AS (
+                SELECT 
+                    status,
+                    COUNT(*) AS count
+                FROM 
+                    filtered_compositions
+                GROUP BY 
+                    status
+            )
+            SELECT 
+                p.status,
+                json_build_object(
+                    'compositions', COALESCE(p.compositions, '[]'::json),
+                    'count', COALESCE(t.count, 0)
                 ) AS result
             FROM 
-                compositions
-            WHERE
-                compositions LIKE '%{search_keyword}%' OR content_code LIKE '%{search_keyword}%'
-            GROUP BY 
-                status;
+                paginated_compositions p
+            LEFT JOIN 
+                total_counts t
+            ON 
+                p.status = t.status
+            ORDER BY 
+                p.status;
             """
-        )
+        ).params(search_keyword=f"%{search_keyword}%", limit=limit, offset=offset)
 
         # Execute the query and get the results
         result = db.session.execute(query).all()
-        
+
         # Construct the dictionary based on the fetched results
         compositions_by_status = {row[0]: row[1] for row in result}
-        
-        # Ensure both statuses are included in the final output
 
         return compositions_by_status
 
@@ -63,7 +101,6 @@ def get_all_compositions(search_keyword):
             f"Error executing SQL query for compositions: {e}"
         )
         return None
-
 
 
 def sort_and_strip_composition(composition):

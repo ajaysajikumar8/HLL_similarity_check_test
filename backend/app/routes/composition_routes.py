@@ -101,20 +101,20 @@ def compare_price_similar_items_route():
         return Response(json_error_data, mimetype="application/json")
 
 
-@composition_bp.route("/get-all-compositions/", defaults={'search_keyword': ""})
+@composition_bp.route("/get-all-compositions/", defaults={"search_keyword": ""})
 @composition_bp.route("/get-all-compositions/<search_keyword>")
 def get_all_compositions_route(search_keyword):
     compositions = get_all_compositions(search_keyword)
     if compositions is not None:
         try:
-            return jsonify(
-                {
-                    "compositions": {
-                        "approved": compositions.get(1, {}),
-                        "pending": compositions.get(0, {}),
-                    }
+            # Construct the response based on the compositions data
+            response = {
+                "compositions": {
+                    "approved": compositions.get(1, {"compositions": [], "count": 0}),
+                    "pending": compositions.get(0, {"compositions": [], "count": 0}),
                 }
-            )
+            }
+            return jsonify(response)
         except Exception as e:
             logging.getLogger(__name__).error(
                 f"Error processing compositions data: {e}"

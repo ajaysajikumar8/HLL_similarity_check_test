@@ -31,8 +31,8 @@ def get_all_compositions():
                 json_agg(
                     json_build_object(
                         'id', id,
-                        'composition', compositions,
-                        'composition_striped', compositions_striped,
+                        'compositions', compositions,
+                        'compositions_striped', compositions_striped,
                         'content_code', content_code
                     )
                 ) AS result

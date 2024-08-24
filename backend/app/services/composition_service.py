@@ -17,15 +17,51 @@ composition_crud_logger = logging.getLogger("composition_crud")
 
 def get_all_compositions():
     """
+    Executes a raw SQL query to get all compositions with their status,
+    aggregated and grouped by status.
+
     Returns:
-        List: All the compositions from the DB.
+        dict: A dictionary containing the compositions grouped by status.
     """
     try:
-        compositions = Compositions.query.all()
-        return compositions
+        query = text(
+            """
+            SELECT 
+                status,
+                json_build_object(
+                    'count', count(*),
+                    'compositions', json_agg(
+                        json_build_object(
+                            'id', id,
+                            'composition', compositions,
+                            'composition_striped', compositions_striped,
+                            'content_code', content_code
+                        )
+                    )
+                ) AS result
+            FROM 
+                compositions
+            GROUP BY 
+                status;
+            """
+        )
+
+        # Execute the query and get the results
+        result = db.session.execute(query).all()
+        
+        # Construct the dictionary based on the fetched results
+        compositions_by_status = {row[0]: row[1] for row in result}
+        
+        # Ensure both statuses are included in the final output
+
+        return compositions_by_status
+
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error retrieving all compositions: {e}")
+        logging.getLogger(__name__).error(
+            f"Error executing SQL query for compositions: {e}"
+        )
         return None
+
 
 
 def sort_and_strip_composition(composition):
@@ -142,7 +178,7 @@ def preprocess_dataframe(df):
 
     try:
         df["composition"] = preprocess_data(df["composition"])
-        
+
         return df
     except Exception as e:
         server_logger.error(

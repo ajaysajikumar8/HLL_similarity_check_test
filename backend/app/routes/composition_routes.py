@@ -106,29 +106,11 @@ def get_all_compositions_route():
     compositions = get_all_compositions()
     if compositions is not None:
         try:
-            approved_compositions = []
-            pending_compositions = []
-
-            for composition in compositions:
-                composition_data = {
-                    "id": composition.id,
-                    "content_code": composition.content_code,
-                    "compositions": composition.compositions,
-                    "compositions_striped": composition.compositions_striped,
-                    "dosage_form": composition.dosage_form,
-                    "status": composition.status,
-                }
-
-                if composition.status == 1:
-                    approved_compositions.append(composition_data)
-                else:
-                    pending_compositions.append(composition_data)
-
             return jsonify(
                 {
                     "compositions": {
-                        "approved": approved_compositions,
-                        "pending": pending_compositions,
+                        "approved": compositions.get(1, {}),
+                        "pending": compositions.get(0, {}),
                     }
                 }
             )

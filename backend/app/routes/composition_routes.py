@@ -101,13 +101,24 @@ def compare_price_similar_items_route():
         return Response(json_error_data, mimetype="application/json")
 
 
-@composition_bp.route("/get-all-compositions/", defaults={"search_keyword": ""})
-@composition_bp.route("/get-all-compositions/<search_keyword>")
-def get_all_compositions_route(search_keyword):
-    compositions = get_all_compositions(search_keyword)
+@composition_bp.route(
+    "/get-all-compositions/", defaults={"page": 1, "search_keyword": ""}
+)
+@composition_bp.route(
+    "/get-all-compositions/<int:page>/", defaults={"search_keyword": ""}
+)
+@composition_bp.route("/get-all-compositions/<int:page>/<search_keyword>")
+def get_all_compositions_route(page=1, search_keyword=""):
+    limit = 10  # Define the number of records per page
+    offset = (page - 1) * limit  # Calculate the offset based on the current page
+
+    # Handle cases where search_keyword might be None
+    search_keyword = search_keyword if search_keyword is not None else ""
+
+    compositions = get_all_compositions(search_keyword, limit=limit, offset=offset)
+
     if compositions is not None:
         try:
-            # Construct the response based on the compositions data
             response = {
                 "compositions": {
                     "approved": compositions.get(1, {"compositions": [], "count": 0}),

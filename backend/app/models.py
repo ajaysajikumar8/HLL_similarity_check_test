@@ -10,7 +10,9 @@ class Compositions(db.Model):
     status = db.Column(db.Integer, nullable=False, default=0)
 
 
-class PriceCap(db.Model):
+class PriceCapCompositions(db.Model):
+    __tablename__ = 'price_cap_compositions'
+
     id = db.Column(db.Integer, primary_key=True)
     compositions = db.Column(db.String(255), nullable=False)
     strength = db.Column(db.String, nullable=True)
@@ -18,3 +20,6 @@ class PriceCap(db.Model):
     packing_unit = db.Column(db.String, nullable=True)
     price_cap = db.Column(db.Numeric, nullable=True)
     compositions_striped = db.Column(db.String, nullable=True)
+    composition_id = db.Column(db.Integer, db.ForeignKey('compositions.id'), nullable=True)
+
+

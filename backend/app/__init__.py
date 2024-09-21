@@ -31,8 +31,12 @@ def create_app():
 
     # Register blueprints
     from .routes.composition_routes import composition_bp
+    from .routes.common_routes import common_bp
+    from .routes.implant_routes import implant_bp
 
+    app.register_blueprint(common_bp)
     app.register_blueprint(composition_bp)
+    app.register_blueprint(implant_bp)
 
     # Use this function when the composition id is null in the live DB ::: TEMP: WILL REMOVE LATER. 
     # with app.app_context():

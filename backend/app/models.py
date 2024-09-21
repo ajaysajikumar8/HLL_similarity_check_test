@@ -23,3 +23,19 @@ class PriceCapCompositions(db.Model):
     composition_id = db.Column(db.Integer, db.ForeignKey('compositions.id'), nullable=True)
 
 
+class Implants(db.Model):
+    __tablename__ = 'implants'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    item_code = db.Column(db.String(255), nullable=True)
+    product_description = db.Column(db.String(255), nullable=True)
+    status = db.Column(db.Integer, nullable=True, default=0)
+
+
+class PriceCapImplants(db.Model):
+    __tablename__ = 'price_cap_implants'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    implant_id = db.Column(db.Integer, db.ForeignKey('implants.id'), nullable=True)
+    variant = db.Column(db.String(255), nullable=True)
+    price_cap = db.Column(db.Numeric, nullable=True)

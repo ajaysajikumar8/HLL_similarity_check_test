@@ -290,7 +290,7 @@ def find_best_match(similar_items, striped_composition):
     return best_match, max_similarity
 
 
-def match_price_cap(composition_id, composition, striped_composition):
+def match_price_cap_composition(composition_id, composition):
     """
     Match the composition with the price cap data and calculate price difference.
 
@@ -374,14 +374,15 @@ def match_single_composition(row):
     if best_match and max_similarity > 98:
         composition["df_compositions"] = best_match.compositions
         composition_id = best_match.id
-        composition["price_comparison"] = match_price_cap(
-            composition_id, composition, striped_composition
+        composition["price_comparison"] = match_price_cap_composition(
+            composition_id, composition
         )
         return composition, None
     else:
         similar_items_score = sorted(
             [
                 {
+                    "db_composition_id": res.id,
                     "db_composition": res.compositions,
                     "similarity_score": calculate_similarity(
                         striped_composition, res.compositions_striped
@@ -415,7 +416,6 @@ def match_compositions(df):
 
     # ::: REMOVE LATER  when CRUD implemented for the tables
     preprocess_compositions_in_db("Compositions")
-    preprocess_compositions_in_db("price_cap_compositions")
 
     matched_compositions = []
     unmatched_compositions = []

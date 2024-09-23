@@ -320,8 +320,8 @@ def match_price_cap(composition, striped_composition):
                 and df_packing_unit == price_cap_result.packing_unit.lower().strip()
             ):
                 price_diff = (
-                    price_cap_result.price_cap
-                    - composition["df_unit_rate_to_hll_excl_of_tax"]
+                    float(price_cap_result.price_cap)
+                    - float(composition["df_unit_rate_to_hll_excl_of_tax"])
                 )
                 status = "Below" if price_diff > 0 else "Above"
 

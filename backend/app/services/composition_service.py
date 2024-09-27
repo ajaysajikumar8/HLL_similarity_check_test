@@ -306,7 +306,7 @@ def match_price_cap_composition(composition_id, composition):
         price_cap_query = db.session.query(PriceCapCompositions).filter(
             PriceCapCompositions.composition_id == composition_id
         )
-        
+
         price_cap_results = price_cap_query.all()
 
         if price_cap_results:
@@ -323,15 +323,15 @@ def match_price_cap_composition(composition_id, composition):
                     break  # Break on the first successful match
 
             if best_match:
-                price_diff = (
-                    best_match.price_cap
-                    - composition["df_unit_rate_to_hll_excl_of_tax"]
+                original_price = float(best_match.price_cap)
+                price_diff = float(
+                    original_price - float(composition["df_unit_rate_to_hll_excl_of_tax"])
                 )
                 status = "Below" if price_diff > 0 else "Above"
 
                 return {
                     "price": original_price,
-                    "price_diff": float(price_diff),
+                    "price_diff": price_diff,
                     "status": status,
                 }
             else:
@@ -521,10 +521,14 @@ def update_composition_id_in_price_cap():
     try:
         # Update PriceCap with matching composition_id from Compositions
         db.session.query(PriceCapCompositions).filter(
-            PriceCapCompositions.compositions_striped == Compositions.compositions_striped,
-            PriceCapCompositions.composition_id.is_(None),  # Only update if composition_id is NULL
+            PriceCapCompositions.compositions_striped
+            == Compositions.compositions_striped,
+            PriceCapCompositions.composition_id.is_(
+                None
+            ),  # Only update if composition_id is NULL
         ).update(
-            {PriceCapCompositions.composition_id: Compositions.id}, synchronize_session="fetch"
+            {PriceCapCompositions.composition_id: Compositions.id},
+            synchronize_session="fetch",
         )  # Synchronize session to reflect changes
         db.session.commit()
         server_logger.info("Successfully updated composition_id in PriceCap.")

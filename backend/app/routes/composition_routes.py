@@ -1,9 +1,7 @@
 from flask import Blueprint, request, jsonify, Response
-import pandas as pd
 from ..services.composition_service import (
     sort_and_strip_composition,
-    match_price_cap,
-    match_compositions,
+    match_price_cap_composition,
     get_all_compositions,
     add_composition,
     update_composition_status,
@@ -20,46 +18,10 @@ composition_bp = Blueprint("composition", __name__)
 composition_crud_logger = logging.getLogger("composition_crud")
 
 
-@composition_bp.route("/match-compositions", methods=["POST"])
-def match_compositions_api():
-    file = request.files.get("file")
-    if not file:
-        logging.getLogger(__name__).error(f"File not uploaded")
-        return jsonify({"error": "No file uploaded"})
-
-    try:
-        df = pd.read_excel(file, engine="openpyxl")
-    except Exception as e:
-        logging.getLogger(__name__).error(f"Error reading Excel file: {e}")
-        return jsonify({"error": "Error reading Excel file"})
-
-    try:
-        matched_compositions, unmatched_compositions = match_compositions(df)
-    except Exception as e:
-        logging.getLogger(__name__).error(f"Error performing string matching: {e}")
-        return jsonify({"error": "Error performing string matching"})
-
-    data = {
-        "matched_compositions": matched_compositions,
-        "unmatched_compositions": unmatched_compositions,
-    }
-
-    try:
-        clean_data = replace_nan_with_none(data)
-
-        json_data = json.dumps(clean_data, indent=4)
-
-        return Response(json_data, mimetype="application/json")
-
-    except Exception as e:
-        error_data = {"error": str(e)}
-        json_error_data = json.dumps(error_data)
-        return Response(json_error_data, mimetype="application/json")
-
-
 @composition_bp.route("/similar-items/compare-price", methods=["POST"])
-def compare_price_similar_items_route():
+def compare_price_similar_items_compositions_route():
     try:
+        similar_composition_id = request.json.get("similar_composition_id")
         composition = request.json.get("composition")
         similar_item = request.json.get("similar_item")
 
@@ -78,9 +40,8 @@ def compare_price_similar_items_route():
             composition["df_unit_rate_to_hll_excl_of_tax"] = float(
                 composition["df_unit_rate_to_hll_excl_of_tax"]
             )
-            striped_composition = sort_and_strip_composition(similar_item)
-            composition["price_comparison"] = match_price_cap(
-                composition, striped_composition
+            composition["price_comparison"] = match_price_cap_composition(
+                similar_composition_id, composition
             )
 
             clean_data = replace_nan_with_none(composition)
@@ -237,6 +198,7 @@ def request_composition():
         return jsonify({"error": "Server error"}), 500
 
 
+# Approve a composition (status 1)
 @composition_bp.route("/approve-composition", methods=["POST"])
 def approve_composition():
     try:

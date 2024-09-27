@@ -319,23 +319,32 @@ def match_price_cap(composition, striped_composition):
                 df_dosage_form == price_cap_result.dosage_form.lower().strip()
                 and df_packing_unit == price_cap_result.packing_unit.lower().strip()
             ):
-                price_diff = (
-                    float(price_cap_result.price_cap)
-                    - float(composition["df_unit_rate_to_hll_excl_of_tax"])
+                original_price = float(price_cap_result.price_cap)
+                price_diff = original_price - float(
+                    composition["df_unit_rate_to_hll_excl_of_tax"]
                 )
                 status = "Below" if price_diff > 0 else "Above"
 
-                return {"price_diff": float(price_diff), "status": status}
+                return {
+                    "price": original_price,
+                    "price_diff": float(price_diff),
+                    "status": status,
+                }
             else:
                 return {
+                    "price": None,
                     "price_diff": None,
                     "status": "No Match on Dosage or Packing Unit",
                 }
         else:
-            return {"price_diff": None, "status": "No Price Found"}
+            return {"price": None, "price_diff": None, "status": "No Price Found"}
     except Exception as e:
         price_cap_logger.error(f"Error while matching the price: {e}")
-        return {"price_diff": None, "status": "Error while fetching price"}
+        return {
+            "price": None,
+            "price_diff": None,
+            "status": "Error while fetching price",
+        }
 
 
 def match_single_composition(row):

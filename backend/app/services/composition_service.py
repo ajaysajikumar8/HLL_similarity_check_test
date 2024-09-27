@@ -306,6 +306,7 @@ def match_price_cap_composition(composition_id, composition):
         price_cap_query = db.session.query(PriceCapCompositions).filter(
             PriceCapCompositions.composition_id == composition_id
         )
+        
         price_cap_results = price_cap_query.all()
 
         if price_cap_results:
@@ -328,17 +329,26 @@ def match_price_cap_composition(composition_id, composition):
                 )
                 status = "Below" if price_diff > 0 else "Above"
 
-                return {"price_diff": float(price_diff), "status": status}
+                return {
+                    "price": original_price,
+                    "price_diff": float(price_diff),
+                    "status": status,
+                }
             else:
                 return {
+                    "price": None,
                     "price_diff": None,
                     "status": "No Match on Dosage or Packing Unit",
                 }
         else:
-            return {"price_diff": None, "status": "No Price Found"}
+            return {"price": None, "price_diff": None, "status": "No Price Found"}
     except Exception as e:
         price_cap_logger.error(f"Error while matching the price: {e}")
-        return {"price_diff": None, "status": "Error while fetching price"}
+        return {
+            "price": None,
+            "price_diff": None,
+            "status": "Error while fetching price",
+        }
 
 
 def match_single_composition(row):

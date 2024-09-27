@@ -3,7 +3,7 @@ from fuzzywuzzy import fuzz
 import re
 import logging
 from sqlalchemy import func, text
-from ..models import Compositions, PriceCap
+from ..models import Compositions, PriceCapCompositions
 from ..db import db
 
 server_logger = logging.getLogger(__name__)
@@ -290,11 +290,12 @@ def find_best_match(similar_items, striped_composition):
     return best_match, max_similarity
 
 
-def match_price_cap(composition, striped_composition):
+def match_price_cap_composition(composition_id, composition):
     """
     Match the composition with the price cap data and calculate price difference.
 
     Args:
+        composition_id (int): The ID of the composition to match.
         composition (dict): The composition details from the dataframe.
         striped_composition (str): The stripped composition string from the dataframe.
 
@@ -302,40 +303,52 @@ def match_price_cap(composition, striped_composition):
         dict: Price comparison result.
     """
     try:
-        price_cap_query = (
-            db.session.query(PriceCap)
-            .order_by(
-                func.levenshtein(PriceCap.compositions_striped, striped_composition)
-            )
-            .limit(4)
+        price_cap_query = db.session.query(PriceCapCompositions).filter(
+            PriceCapCompositions.composition_id == composition_id
         )
-        price_cap_result = price_cap_query.first()
 
-        if price_cap_result:
-            df_dosage_form = composition["df_dosage_form"].lower().strip()
-            df_packing_unit = composition["df_packing_unit"].lower().strip()
+        price_cap_results = price_cap_query.all()
 
-            if (
-                df_dosage_form == price_cap_result.dosage_form.lower().strip()
-                and df_packing_unit == price_cap_result.packing_unit.lower().strip()
-            ):
-                price_diff = (
-                    float(price_cap_result.price_cap)
-                    - float(composition["df_unit_rate_to_hll_excl_of_tax"])
+        if price_cap_results:
+            best_match = None
+            for price_cap_result in price_cap_results:
+                df_dosage_form = composition["df_dosage_form"].lower().strip()
+                df_packing_unit = composition["df_packing_unit"].lower().strip()
+
+                if (
+                    df_dosage_form == price_cap_result.dosage_form.lower().strip()
+                    and df_packing_unit == price_cap_result.packing_unit.lower().strip()
+                ):
+                    best_match = price_cap_result
+                    break  # Break on the first successful match
+
+            if best_match:
+                original_price = float(best_match.price_cap)
+                price_diff = float(
+                    original_price - float(composition["df_unit_rate_to_hll_excl_of_tax"])
                 )
                 status = "Below" if price_diff > 0 else "Above"
 
-                return {"price_diff": float(price_diff), "status": status}
+                return {
+                    "price": original_price,
+                    "price_diff": price_diff,
+                    "status": status,
+                }
             else:
                 return {
+                    "price": None,
                     "price_diff": None,
                     "status": "No Match on Dosage or Packing Unit",
                 }
         else:
-            return {"price_diff": None, "status": "No Price Found"}
+            return {"price": None, "price_diff": None, "status": "No Price Found"}
     except Exception as e:
         price_cap_logger.error(f"Error while matching the price: {e}")
-        return {"price_diff": None, "status": "Error while fetching price"}
+        return {
+            "price": None,
+            "price_diff": None,
+            "status": "Error while fetching price",
+        }
 
 
 def match_single_composition(row):
@@ -370,14 +383,16 @@ def match_single_composition(row):
 
     if best_match and max_similarity > 98:
         composition["df_compositions"] = best_match.compositions
-        composition["price_comparison"] = match_price_cap(
-            composition, striped_composition
+        composition_id = best_match.id
+        composition["price_comparison"] = match_price_cap_composition(
+            composition_id, composition
         )
         return composition, None
     else:
         similar_items_score = sorted(
             [
                 {
+                    "db_composition_id": res.id,
                     "db_composition": res.compositions,
                     "similarity_score": calculate_similarity(
                         striped_composition, res.compositions_striped
@@ -409,8 +424,8 @@ def match_compositions(df):
     except Exception as e:
         return {"error": str(e)}
 
+    # ::: REMOVE LATER  when CRUD implemented for the tables
     preprocess_compositions_in_db("Compositions")
-    preprocess_compositions_in_db("Price_Cap")
 
     matched_compositions = []
     unmatched_compositions = []
@@ -500,3 +515,23 @@ def delete_composition(composition_id):
     except Exception as e:
         db.session.rollback()
         composition_crud_logger.error(f"Error deleting composition: {e}")
+
+
+def update_composition_id_in_price_cap():
+    try:
+        # Update PriceCap with matching composition_id from Compositions
+        db.session.query(PriceCapCompositions).filter(
+            PriceCapCompositions.compositions_striped
+            == Compositions.compositions_striped,
+            PriceCapCompositions.composition_id.is_(
+                None
+            ),  # Only update if composition_id is NULL
+        ).update(
+            {PriceCapCompositions.composition_id: Compositions.id},
+            synchronize_session="fetch",
+        )  # Synchronize session to reflect changes
+        db.session.commit()
+        server_logger.info("Successfully updated composition_id in PriceCap.")
+    except Exception as e:
+        db.session.rollback()
+        server_logger.error(f"Error updating composition_id in PriceCap: {e}")

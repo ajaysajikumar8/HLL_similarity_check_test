@@ -103,22 +103,24 @@ def match_price_cap_implant(implant_id, implant):
                     break  # Break on the first successful match
 
             if best_match:
-                price_diff = (
-                    best_match.price_cap - implant["df_unit_rate_to_hll_excl_of_tax"]
+                original_price = float(best_match.price_cap)
+                price_diff = float(
+                    original_price - float(implant["df_unit_rate_to_hll_excl_of_tax"])
                 )
                 status = "Below" if price_diff > 0 else "Above"
 
-                return {"price_diff": float(price_diff), "status": status}
+                return {"price_diff": price_diff, "status": status}
             else:
                 return {
+                    "price": original_price,
                     "price_diff": None,
                     "status": "No Match on Dosage or Packing Unit",
                 }
         else:
-            return {"price_diff": None, "status": "No Price Found"}
+            return {"price": None, "price_diff": None, "status": "No Price Found"}
     except Exception as e:
         price_cap_logger.error(f"Error while matching the price: {e}")
-        return {"price_diff": None, "status": "Error while fetching price"}
+        return {"price": None, "price_diff": None, "status": "Error while fetching price"}
 
 
 def match_single_implant(row):

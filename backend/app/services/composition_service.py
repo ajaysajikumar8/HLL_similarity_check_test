@@ -511,18 +511,22 @@ def update_composition_status(composition_id, status):
     return update_composition_fields(composition_id, status=status)
 
 
+# Soft delete or (rejected)
 def delete_composition(composition_id):
+    """
+    Mark an composition as deleted by updating its status to 3.
+    
+    Args:
+        composition_id (int): The ID of the composition to delete.
+
+    Returns:
+        Compositions: Updated Composition object or None if not found.
+    """
     try:
-        composition = Compositions.query.get(composition_id)
-        if composition:
-            db.session.delete(composition)
-            db.session.commit()
-            return composition
-        else:
-            return None
+        return update_composition_fields(composition_id, status=3)
     except Exception as e:
-        db.session.rollback()
-        composition_crud_logger.error(f"Error deleting composition: {e}")
+        composition_crud_logger.error(f"Error marking composition as deleted: {e}")
+        return None
 
 
 def update_composition_id_in_price_cap():

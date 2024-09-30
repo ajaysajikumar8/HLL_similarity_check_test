@@ -360,16 +360,19 @@ def update_implant_status(implant_id, status):
     return update_implant_fields(implant_id, status=status)
 
 
-
+# Soft delete or (rejected)
 def delete_implant(implant_id):
+    """
+    Mark an implant as deleted by updating its status to 3.
+    
+    Args:
+        implant_id (int): The ID of the implant to delete.
+
+    Returns:
+        Implants: Updated implant object or None if not found.
+    """
     try:
-        implant = Implants.query.get(implant_id)
-        if implant:
-            db.session.delete(implant)
-            db.session.commit()
-            return implant
-        else:
-            return None
+        return update_implant_fields(implant_id, status=3)
     except Exception as e:
-        db.session.rollback()
-        composition_crud_logger.error(f"Error deleting implant: {e}")
+        composition_crud_logger.error(f"Error marking implant as deleted: {e}")
+        return None

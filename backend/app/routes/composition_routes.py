@@ -6,7 +6,7 @@ from ..services.composition_service import (
     add_composition,
     update_composition_status,
     delete_composition,
-    get_composition_by_id,
+    get_composition,
     update_composition,
 )
 import logging
@@ -35,7 +35,6 @@ def compare_price_similar_items_compositions_route():
                 400,
             )
         try:
-            logging.getLogger("price_cap").info(composition)
             composition["df_compositions"] = similar_item
             composition["df_unit_rate_to_hll_excl_of_tax"] = float(
                 composition["df_unit_rate_to_hll_excl_of_tax"]
@@ -119,8 +118,8 @@ def add_new_composition_as_approver_route():
 
 # Fetch a composition by ID
 @composition_bp.route("/get-composition/<int:composition_id>")
-def get_composition(composition_id):
-    composition = get_composition_by_id(composition_id)
+def get_composition_by_id(composition_id):
+    composition = get_composition(composition_id)
     if composition:
         composition_data = {
             "id": composition.id,
@@ -167,8 +166,11 @@ def update_composition_route(composition_id):
 @composition_bp.route("/delete-composition/<int:composition_id>", methods=["DELETE"])
 def delete_composition_route(composition_id):
     try:
-        delete_composition(composition_id)
-        return jsonify({"message": "Composition deleted successfully"})
+        deleted_composition = delete_composition(composition_id)
+        if deleted_composition:
+            return jsonify({"message": "Composition deleted successfully"})
+        else:
+            return jsonify({"error" : "No composition found with the provided id"})
     except Exception as e:
         composition_crud_logger.error(f"Error while deleting composition: {e}")
         return jsonify({"error": "Error deleting composition"}), 500
@@ -181,6 +183,11 @@ def request_composition():
         content_code = request.form.get("content_code", None)
         composition_name = request.form.get("composition_name")
         dosage_form = request.form.get("dosage_form", None)
+        if not composition_name:
+            return jsonify(
+                {"error": "Composition name is required"}
+            )
+
         try:
             new_composition = add_composition(
                 composition_name, content_code, dosage_form
@@ -199,7 +206,7 @@ def request_composition():
 
 
 # Approve a composition (status 1)
-@composition_bp.route("/approve-composition", methods=["POST"])
+@composition_bp.route("/approve-composition", methods=["PUT"]) #changed method from POST to PUT
 def approve_composition():
     try:
         composition_id = request.json.get("composition_id")
@@ -213,7 +220,7 @@ def approve_composition():
             if updated_composition:
                 return jsonify({"message": "Composition approved", "status": 1})
             else:
-                return jsonify({"error": "Error approving composition"}), 500
+                return jsonify({"error": "Error approving composition, no composition found"}), 500
         except Exception as e:
             composition_crud_logger.error(f"Error approving composition: {e}")
 

@@ -457,7 +457,7 @@ def add_composition(composition_name, content_code=None, dosage_form=None, statu
         return None
 
 
-def get_composition_by_id(composition_id):
+def get_composition(composition_id):
     try:
         return Compositions.query.get(composition_id)
     except Exception as e:
@@ -465,45 +465,50 @@ def get_composition_by_id(composition_id):
         return None
 
 
-def update_composition(
-    composition_id, content_code=None, composition_name=None, dosage_form=None
-):
+def update_composition_fields(composition_id, **fields):
+    """
+    Update the specified fields for a given composition.
+    Args:
+        composition_id (int): ID of the composition to update.
+        fields (dict): A dictionary of fields to update.
+    Returns:
+        Compositions: Updated composition object or None if not found.
+    """
     try:
         composition = Compositions.query.get(composition_id)
         if not composition:
             return None
 
-        composition.content_code = (
-            content_code if content_code else composition.content_code
-        )
-        composition.compositions = (
-            composition_name if composition_name else composition.compositions
-        )
-        composition.dosage_form = (
-            dosage_form if dosage_form else composition.dosage_form
-        )
+        # Dynamically update fields
+        for field, value in fields.items():
+            if value is not None:  # Update only if the field is provided
+                setattr(composition, field, value)
+
         db.session.commit()
         return composition
     except Exception as e:
         db.session.rollback()
-        composition_crud_logger.error(f"Error updating composition: {e}")
+        composition_crud_logger.error(f"Error updating composition fields: {e}")
         return None
+
+
+def update_composition(composition_id, content_code=None, composition_name=None, dosage_form=None):
+    """
+    Update content_code, composition_name, and dosage_form for a given composition.
+    """
+    return update_composition_fields(
+        composition_id,
+        content_code=content_code,
+        compositions=composition_name,
+        dosage_form=dosage_form
+    )
 
 
 def update_composition_status(composition_id, status):
-    try:
-        composition = Compositions.query.get(composition_id)
-        if not composition:
-            return None
-
-        composition.status = status
-        db.session.commit()
-        return composition
-
-    except Exception as e:
-        db.session.rollback()
-        logging.getLogger(__name__).error(f"Error updating composition status: {e}")
-        return None
+    """
+    Update the status field for a given composition.
+    """
+    return update_composition_fields(composition_id, status=status)
 
 
 def delete_composition(composition_id):
@@ -512,6 +517,9 @@ def delete_composition(composition_id):
         if composition:
             db.session.delete(composition)
             db.session.commit()
+            return composition
+        else:
+            return None
     except Exception as e:
         db.session.rollback()
         composition_crud_logger.error(f"Error deleting composition: {e}")

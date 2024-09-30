@@ -291,11 +291,11 @@ def get_all_implants(search_keyword="", limit=10, offset=0):
         return None
 
 
-def add_implant(implant_name, item_code, status=0):
+def add_implant(product_description, item_code=None, status=0):
     try:
         new_implant = Implants(
             item_code=item_code,
-            product_description=implant_name,
+            product_description=product_description,
             status=status,
         )
         db.session.add(new_implant)
@@ -303,5 +303,73 @@ def add_implant(implant_name, item_code, status=0):
         return new_implant
     except Exception as e:
         db.session.rollback()
-        composition_crud_logger.error(f"Error adding new composition: {e}")
+        composition_crud_logger.error(f"Error adding new Implant: {e}")
         return None
+    
+
+def get_implant(implant_id):
+    try:
+        return Implants.query.get(implant_id)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error fetching Implant by ID: {e}")
+        return None
+    
+
+def update_implant_fields(implant_id, **fields):
+    """
+    Update the specified fields for a given composition.
+    Args:
+        composition_id (int): ID of the composition to update.
+        fields (dict): A dictionary of fields to update.
+    Returns:
+        Compositions: Updated composition object or None if not found.
+    """
+    try:
+        implant = Implants.query.get(implant_id)
+        if not implant:
+            return None
+
+        # Dynamically update fields
+        for field, value in fields.items():
+            if value is not None:  # Update only if the field is provided
+                setattr(implant, field, value)
+
+        db.session.commit()
+        return implant
+    except Exception as e:
+        db.session.rollback()
+        composition_crud_logger.error(f"Error updating Implants fields: {e}")
+        return None
+
+
+def update_implant(implant_id, item_code=None, product_description=None):
+    """
+    Update item_code, product description(implant name) for a given implant.
+    """
+    return update_implant_fields(
+        implant_id,
+        item_code=item_code,
+        product_description=product_description,
+    )
+
+
+def update_implant_status(implant_id, status):
+    """
+    Update the status field for a given implant.
+    """
+    return update_implant_fields(implant_id, status=status)
+
+
+
+def delete_implant(implant_id):
+    try:
+        implant = Implants.query.get(implant_id)
+        if implant:
+            db.session.delete(implant)
+            db.session.commit()
+            return implant
+        else:
+            return None
+    except Exception as e:
+        db.session.rollback()
+        composition_crud_logger.error(f"Error deleting implant: {e}")

@@ -5,6 +5,7 @@ import logging
 from sqlalchemy import func, text
 from ..models import Compositions, PriceCapCompositions
 from ..db import db
+from ..constants import STATUS_APPROVED, STATUS_PENDING, STATUS_REJECTED
 
 server_logger = logging.getLogger(__name__)
 composition_match_logger = logging.getLogger("composition_match")
@@ -239,7 +240,7 @@ def fetch_similar_compositions(striped_composition):
     try:
         query = (
             db.session.query(Compositions)
-            .filter(Compositions.status == 1)
+            .filter(Compositions.status == STATUS_APPROVED)
             .order_by(
                 func.levenshtein(Compositions.compositions_striped, striped_composition)
             )
@@ -440,7 +441,7 @@ def match_compositions(df):
     return matched_compositions, unmatched_compositions
 
 
-def add_composition(composition_name, content_code=None, dosage_form=None, status=0):
+def add_composition(composition_name, content_code=None, dosage_form=None, status=STATUS_PENDING):
     try:
         new_composition = Compositions(
             content_code=content_code,
@@ -523,7 +524,7 @@ def delete_composition(composition_id):
         Compositions: Updated Composition object or None if not found.
     """
     try:
-        return update_composition_fields(composition_id, status=3)
+        return update_composition_fields(composition_id, status=STATUS_REJECTED)
     except Exception as e:
         composition_crud_logger.error(f"Error marking composition as deleted: {e}")
         return None

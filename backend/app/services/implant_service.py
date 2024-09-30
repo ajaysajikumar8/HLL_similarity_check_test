@@ -5,6 +5,7 @@ import logging
 from sqlalchemy import func, text
 from ..models import Implants, PriceCapImplants
 from ..db import db
+from ..constants import STATUS_APPROVED, STATUS_PENDING, STATUS_REJECTED
 
 server_logger = logging.getLogger(__name__)
 composition_match_logger = logging.getLogger("composition_match")
@@ -65,7 +66,7 @@ def fetch_similar_implants(product_implant):
     try:
         query = (
             db.session.query(Implants)
-            .filter(Implants.status == 1)
+            .filter(Implants.status == STATUS_APPROVED)
             .order_by(func.levenshtein(Implants.product_description, product_implant))
             .limit(20)
         )
@@ -291,7 +292,7 @@ def get_all_implants(search_keyword="", limit=10, offset=0):
         return None
 
 
-def add_implant(product_description, item_code=None, status=0):
+def add_implant(product_description, item_code=None, status=STATUS_PENDING):
     try:
         new_implant = Implants(
             item_code=item_code,
@@ -372,7 +373,7 @@ def delete_implant(implant_id):
         Implants: Updated implant object or None if not found.
     """
     try:
-        return update_implant_fields(implant_id, status=3)
+        return update_implant_fields(implant_id, status=STATUS_REJECTED)
     except Exception as e:
         composition_crud_logger.error(f"Error marking implant as deleted: {e}")
         return None

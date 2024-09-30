@@ -12,6 +12,7 @@ from ..services.implant_service import (
 )
 from ..utils import replace_nan_with_none
 import json
+from ..constants import STATUS_APPROVED, STATUS_PENDING, STATUS_REJECTED
 
 implant_bp = Blueprint("implant", __name__)
 
@@ -73,8 +74,8 @@ def get_all_implants_route():
         try:
             response = {
                 "implants": {
-                    "approved": implants.get(1, {"implants": [], "count": 0}),
-                    "pending": implants.get(0, {"implants": [], "count": 0}),
+                    "approved": implants.get(STATUS_APPROVED, {"implants": [], "count": 0}),
+                    "pending": implants.get(STATUS_PENDING, {"implants": [], "count": 0}),
                 }
             }
             return jsonify(response)
@@ -92,7 +93,7 @@ def add_new_implant_as_approver_route():
     try:
         item_code = request.form.get("item_code", None)
         product_description = request.form.get("product_description")
-        status = 1
+        status = STATUS_APPROVED
 
         if not product_description:
             composition_crud_logger.error(f"Product (Implant) name is required")
@@ -175,7 +176,7 @@ def request_to_add_implant_route():
     try:
         item_code = request.form.get("item_code", None)
         product_description = request.form.get("product_description")
-        status = 0
+        status = STATUS_PENDING
 
         if not product_description:
             composition_crud_logger.error(f"Product (Implant) name is required")
@@ -208,7 +209,7 @@ def approve_requested_implant_route():
             return jsonify({"error": "Composition ID is required"}), 400
 
         try:
-            updated_implant = update_implant_status(implant_id=implant_id, status=1)
+            updated_implant = update_implant_status(implant_id=implant_id, status=STATUS_APPROVED)
 
             if updated_implant:
                 return jsonify({"message": "Implant approved", "status": 1})

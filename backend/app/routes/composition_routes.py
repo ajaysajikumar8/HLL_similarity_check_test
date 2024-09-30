@@ -12,6 +12,7 @@ from ..services.composition_service import (
 import logging
 from ..utils import replace_nan_with_none
 import json
+from ..constants import STATUS_REJECTED, STATUS_PENDING, STATUS_APPROVED
 
 composition_bp = Blueprint("composition", __name__)
 
@@ -76,8 +77,8 @@ def get_all_compositions_route():
         try:
             response = {
                 "compositions": {
-                    "approved": compositions.get(1, {"compositions": [], "count": 0}),
-                    "pending": compositions.get(0, {"compositions": [], "count": 0}),
+                    "approved": compositions.get(STATUS_APPROVED, {"compositions": [], "count": 0}),
+                    "pending": compositions.get(STATUS_PENDING, {"compositions": [], "count": 0}),
                 }
             }
             return jsonify(response)
@@ -96,7 +97,7 @@ def add_new_composition_as_approver_route():
         content_code = request.form.get("content_code", None)
         composition_name = request.form.get("composition_name")
         dosage_form = request.form.get("dosage_form", None)
-        status = 1
+        status = STATUS_APPROVED
 
         if not composition_name:
             composition_crud_logger.error(f"Composition name is required")
@@ -215,7 +216,7 @@ def approve_composition():
             return jsonify({"error": "Composition ID is required"}), 400
 
         try:
-            updated_composition = update_composition_status(composition_id, 1)
+            updated_composition = update_composition_status(composition_id=composition_id, status=STATUS_APPROVED)
 
             if updated_composition:
                 return jsonify({"message": "Composition approved", "status": 1})

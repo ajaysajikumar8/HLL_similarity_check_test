@@ -11,6 +11,22 @@ common_bp = Blueprint("common", __name__)
 
 @common_bp.route("/match-file", methods=["POST"])
 def match_file_api():
+    """
+    API route to match file data with predefined compositions or implants based on file type.
+    
+    This route handles the upload of an Excel file, reads its content into a pandas DataFrame,
+    and performs string matching to determine matched and unmatched compositions or implants.
+
+    Request Parameters:
+    - file: The Excel file to be uploaded (required).
+    - file_type: An integer indicating the type of file (optional, defaults to 1).
+
+    Returns:
+    - 200: JSON response containing the matched and unmatched compositions/implants.
+    - 400: If no file is uploaded or an invalid file type is provided.
+    - 500: If there is an error reading the Excel file or processing the data.
+    """
+
     file = request.files.get("file")
     file_type = request.args.get("file_type", default=1, type=int)
 

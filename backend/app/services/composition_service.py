@@ -18,16 +18,22 @@ composition_crud_logger = logging.getLogger("composition_crud")
 
 def get_all_compositions(search_keyword="", limit=10, offset=0):
     """
-    Executes a raw SQL query to get all compositions with their status,
-    aggregated and grouped by status, including search functionality.
+    Retrieve compositions from the database, grouped by status, with optional search functionality.
 
     Args:
-        search_keyword (str): Keyword to search in compositions and content_code.
-        limit (int): The number of records to return per page.
-        offset (int): The number of records to skip before starting to return results.
+        search_keyword (str): Keyword to search in 'compositions' and 'content_code' (case-insensitive).
+        limit (int): Maximum number of records to return (default: 10).
+        offset (int): Number of records to skip before starting to return results (default: 0).
 
     Returns:
-        dict: A dictionary containing the compositions grouped by status.
+        dict: Compositions grouped by status, with each status containing a list of compositions and their count.
+              Example: {
+                  "approved": {"compositions": [...], "count": 5},
+                  "pending": {"compositions": [...], "count": 2}
+              }
+
+    Raises:
+        Exception: Logs errors and returns None if an error occurs during query execution.
     """
     try:
         query = text(
@@ -105,6 +111,16 @@ def get_all_compositions(search_keyword="", limit=10, offset=0):
 
 
 def sort_and_strip_composition(composition):
+    """
+    Sort and normalize a composition string by removing whitespace and converting to lowercase.
+
+    Args:
+        composition (str): The composition string containing molecules separated by '+'.
+
+    Returns:
+        str: A sorted and normalized composition string.
+    """
+
     sorted_molecules = sorted(
         [molecule.strip().lower() for molecule in re.split(r"[+|]", composition)]
     )
@@ -114,28 +130,23 @@ def sort_and_strip_composition(composition):
 
 def preprocess_data(data: list) -> list:
     """
-    Split the composition and sort the molecule in ascending manner. The molecules are striped and converted to lower case.
+    Preprocess compositions by sorting and normalizing the molecules.
 
     Args:
-        data (list): compositions column from dataframe in excel
+        data (list): Compositions from the DataFrame in Excel.
 
     Returns:
-        Modified data (list): preprocessed compositions in excel
+        list: Preprocessed compositions with sorted, stripped, and lowercased molecules.
     """
-    modified_data = []
-    for composition in data:
-
-        composition = sort_and_strip_composition(composition)
-        modified_data.append(composition)
-
-    return modified_data
+    return [sort_and_strip_composition(composition) for composition in data]
 
 
-def preprocess_compositions_in_db(table_name):
+def preprocess_compositions_in_db(table_name: str):
     """
-    Preprocess compositions within the specified table and store the processed compositions
-    in the compositions_striped column.
-    :param table_name: Name of the table to be processed (e.g., 'Compositions' or 'PriceCap').
+    Preprocess compositions in the specified table and store the results in the compositions_striped column.
+
+    Args:
+        table_name (str): The name of the table to process (e.g., 'Compositions' or 'PriceCap').
     """
     try:
         db.session.execute(
@@ -145,7 +156,7 @@ def preprocess_compositions_in_db(table_name):
         )
         db.session.commit()
         server_logger.info(
-            f"Compositions in {table_name} preprocessed and stored in compositions_striped."
+            f"Compositions in {table_name} have been preprocessed and stored in compositions_striped."
         )
     except Exception as e:
         db.session.rollback()
@@ -326,7 +337,8 @@ def match_price_cap_composition(composition_id, composition):
             if best_match:
                 original_price = float(best_match.price_cap)
                 price_diff = float(
-                    original_price - float(composition["df_unit_rate_to_hll_excl_of_tax"])
+                    original_price
+                    - float(composition["df_unit_rate_to_hll_excl_of_tax"])
                 )
                 status = "Below" if price_diff > 0 else "Above"
 
@@ -441,7 +453,24 @@ def match_compositions(df):
     return matched_compositions, unmatched_compositions
 
 
-def add_composition(composition_name, content_code=None, dosage_form=None, status=STATUS_PENDING):
+def add_composition(
+    composition_name: str,
+    content_code: str = None,
+    dosage_form: str = None,
+    status: str = STATUS_PENDING,
+) -> Compositions:
+    """
+    Adds a new composition to the database.
+
+    Args:
+        composition_name (str): The name of the composition.
+        content_code (str, optional): The content code associated with the composition. Defaults to None.
+        dosage_form (str, optional): The dosage form of the composition. Defaults to None.
+        status (str): The status of the composition. Defaults to STATUS_PENDING.
+
+    Returns:
+        Compositions: The newly added composition object, or None if the operation failed.
+    """
     try:
         new_composition = Compositions(
             content_code=content_code,
@@ -458,7 +487,16 @@ def add_composition(composition_name, content_code=None, dosage_form=None, statu
         return None
 
 
-def get_composition(composition_id):
+def get_composition(composition_id: int) -> Compositions:
+    """
+    Retrieves a composition from the database by its ID.
+
+    Args:
+        composition_id (int): The ID of the composition to retrieve.
+
+    Returns:
+        Compositions: The composition object if found, or None if not found or an error occurs.
+    """
     try:
         return Compositions.query.get(composition_id)
     except Exception as e:
@@ -466,14 +504,16 @@ def get_composition(composition_id):
         return None
 
 
-def update_composition_fields(composition_id, **fields):
+def update_composition_fields(composition_id: int, **fields) -> Compositions:
     """
-    Update the specified fields for a given composition.
+    Update specified fields for a given composition.
+
     Args:
         composition_id (int): ID of the composition to update.
         fields (dict): A dictionary of fields to update.
+
     Returns:
-        Compositions: Updated composition object or None if not found.
+        Compositions: Updated composition object, or None if not found or an error occurs.
     """
     try:
         composition = Compositions.query.get(composition_id)
@@ -493,35 +533,56 @@ def update_composition_fields(composition_id, **fields):
         return None
 
 
-def update_composition(composition_id, content_code=None, composition_name=None, dosage_form=None):
+def update_composition(
+    composition_id: int,
+    content_code: str = None,
+    composition_name: str = None,
+    dosage_form: str = None,
+) -> Compositions:
     """
-    Update content_code, composition_name, and dosage_form for a given composition.
+    Update the content_code, composition_name, and dosage_form for a given composition.
+
+    Args:
+        composition_id (int): ID of the composition to update.
+        content_code (str, optional): New content code for the composition.
+        composition_name (str, optional): New name for the composition.
+        dosage_form (str, optional): New dosage form for the composition.
+
+    Returns:
+        Compositions: Updated composition object or None if not found or an error occurs.
     """
     return update_composition_fields(
         composition_id,
         content_code=content_code,
         compositions=composition_name,
-        dosage_form=dosage_form
+        dosage_form=dosage_form,
     )
 
 
-def update_composition_status(composition_id, status):
+def update_composition_status(composition_id: int, status: str) -> Compositions:
     """
     Update the status field for a given composition.
+
+    Args:
+        composition_id (int): ID of the composition to update.
+        status (str): New status to set for the composition.
+
+    Returns:
+        Compositions: Updated composition object or None if not found or an error occurs.
     """
     return update_composition_fields(composition_id, status=status)
 
 
-# Soft delete or (rejected)
-def delete_composition(composition_id):
+
+def delete_composition(composition_id: int) -> Compositions:
     """
-    Mark an composition as deleted by updating its status to 3.
-    
+    Mark a composition as deleted by updating its status to rejected.
+
     Args:
         composition_id (int): The ID of the composition to delete.
 
     Returns:
-        Compositions: Updated Composition object or None if not found.
+        Compositions: Updated Composition object or None if not found or an error occurs.
     """
     try:
         return update_composition_fields(composition_id, status=STATUS_REJECTED)
@@ -530,21 +591,25 @@ def delete_composition(composition_id):
         return None
 
 
-def update_composition_id_in_price_cap():
+
+def update_composition_id_in_price_cap() -> None:
+    """
+    Update PriceCapCompositions with matching composition_id from Compositions.
+    Only updates entries in PriceCapCompositions where composition_id is NULL.
+    """
     try:
-        # Update PriceCap with matching composition_id from Compositions
+        # Update PriceCapCompositions with matching composition_id
         db.session.query(PriceCapCompositions).filter(
-            PriceCapCompositions.compositions_striped
-            == Compositions.compositions_striped,
-            PriceCapCompositions.composition_id.is_(
-                None
-            ),  # Only update if composition_id is NULL
+            PriceCapCompositions.compositions_striped == Compositions.compositions_striped,
+            PriceCapCompositions.composition_id.is_(None)  # Only update if composition_id is NULL
         ).update(
             {PriceCapCompositions.composition_id: Compositions.id},
-            synchronize_session="fetch",
-        )  # Synchronize session to reflect changes
+            synchronize_session="fetch"  # Synchronize session to reflect changes
+        )
+
         db.session.commit()
         server_logger.info("Successfully updated composition_id in PriceCap.")
     except Exception as e:
         db.session.rollback()
         server_logger.error(f"Error updating composition_id in PriceCap: {e}")
+

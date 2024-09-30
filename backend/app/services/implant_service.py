@@ -18,11 +18,11 @@ composition_crud_logger = logging.getLogger("composition_crud")
 
 def calculate_similarity(product_implant, db_product_description):
     """
-    Calculate the similarity between two compositions.
+    Calculate the similarity between two implants.
 
     Args:
-        striped_composition (str): The stripped composition from the dataframe.
-        db_composition_striped (str): The stripped composition from the database.
+        product_implant (str): The user entered implant from the dataframe.
+        db_product_description (str): The product description (or implant name) from the database.
 
     Returns:
         int: Similarity score.
@@ -35,8 +35,8 @@ def find_best_match(similar_items, product_implant):
     Find the best match from a list of similar items.
 
     Args:
-        similar_items (List): List of similar compositions from the database.
-        striped_composition (str): The stripped composition string from the dataframe.
+        similar_items (List): List of similar implants from the database.
+        product_implant (str): The product description (implant name) from the dataframe. 
 
     Returns:
         Tuple: Best match and maximum similarity score.
@@ -78,15 +78,14 @@ def fetch_similar_implants(product_implant):
 
 def match_price_cap_implant(implant_id, implant):
     """
-    Match the composition with the price cap data and calculate price difference.
+    Match the implant with the price cap data and calculate the price difference.
 
     Args:
-        composition_id (int): The ID of the composition to match.
-        composition (dict): The composition details from the dataframe.
-        striped_composition (str): The stripped composition string from the dataframe.
+        implant_id (int): The ID of the implant to match.
+        implant (dict): The implant details from the input, including dosage and price.
 
     Returns:
-        dict: Price comparison result.
+        dict: Price comparison result, including price difference and status.
     """
     try:
         price_cap_query = db.session.query(PriceCapImplants).filter(
@@ -126,13 +125,13 @@ def match_price_cap_implant(implant_id, implant):
 
 def match_single_implant(row):
     """
-    Match a single composition from the dataframe with the database.
+    Match a single implant from the dataframe with the database.
 
     Args:
-        row (pd.Series): A row from the dataframe.
+        row (pd.Series): A row from the dataframe containing implant details.
 
     Returns:
-        Tuple: Matched composition data and list of unmatched compositions.
+        Tuple: A dictionary of matched implant data and a dictionary of unmatched compositions with similar items and their similarity scores.
     """
     implant = {
         "df_sl_no": row["sl_no"],
@@ -184,13 +183,13 @@ def match_single_implant(row):
 
 def match_implants(df):
     """
-    Checks the compositions in the dataframe and checks if they match with the DB.
+    Checks the implants in the dataframe and checks if they match with the DB.
 
     Args:
         df (pd.DataFrame): Data from the Excel sheet.
 
     Returns:
-        dict: API response containing matched and unmatched compositions.
+        dict: API response containing matched and unmatched implants.
     """
 
     matched_implants = []
@@ -208,16 +207,16 @@ def match_implants(df):
 
 def get_all_implants(search_keyword="", limit=10, offset=0):
     """
-    Executes a raw SQL query to get all compositions with their status,
+    Executes a raw SQL query to get all implants with their status,
     aggregated and grouped by status, including search functionality.
 
     Args:
-        search_keyword (str): Keyword to search in compositions and content_code.
+        search_keyword (str): Keyword to search in product_description and item_code.
         limit (int): The number of records to return per page.
         offset (int): The number of records to skip before starting to return results.
 
     Returns:
-        dict: A dictionary containing the compositions grouped by status.
+        dict: A dictionary containing the implants grouped by status.
     """
     try:
         query = text(
@@ -293,6 +292,17 @@ def get_all_implants(search_keyword="", limit=10, offset=0):
 
 
 def add_implant(product_description, item_code=None, status=STATUS_PENDING):
+    """
+    Adds a new implant to the database.
+
+    Args:
+        product_description (str): Description of the implant.
+        item_code (str, optional): Unique item code for the implant. Defaults to None.
+        status (int, optional): Status of the implant. Defaults to STATUS_PENDING.
+
+    Returns:
+        Implants: The newly created implant object, or None if an error occurs.
+    """
     try:
         new_implant = Implants(
             item_code=item_code,
@@ -309,43 +319,64 @@ def add_implant(product_description, item_code=None, status=STATUS_PENDING):
     
 
 def get_implant(implant_id):
+    """
+    Fetches an implant by its ID.
+
+    Args:
+        implant_id (int): The ID of the implant to retrieve.
+
+    Returns:
+        Implants: The implant object if found, or None if an error occurs.
+    """
     try:
         return Implants.query.get(implant_id)
     except Exception as e:
         logging.getLogger(__name__).error(f"Error fetching Implant by ID: {e}")
         return None
+
     
 
-def update_implant_fields(implant_id, **fields):
+def update_implant_fields(implant_id: int, **fields: dict) -> Implants | None:
     """
-    Update the specified fields for a given composition.
+    Updates specified fields for a given implant.
+
     Args:
-        composition_id (int): ID of the composition to update.
-        fields (dict): A dictionary of fields to update.
+        implant_id (int): ID of the implant to update.
+        fields (dict): Key-value pairs of fields to update.
+
     Returns:
-        Compositions: Updated composition object or None if not found.
+        Implants: The updated implant object, or None if not found or on error.
     """
     try:
         implant = Implants.query.get(implant_id)
         if not implant:
             return None
 
-        # Dynamically update fields
+        # Update only provided fields
         for field, value in fields.items():
-            if value is not None:  # Update only if the field is provided
+            if value is not None:
                 setattr(implant, field, value)
 
         db.session.commit()
         return implant
     except Exception as e:
         db.session.rollback()
-        composition_crud_logger.error(f"Error updating Implants fields: {e}")
+        composition_crud_logger.error(f"Error updating implant fields: {e}")
         return None
 
 
-def update_implant(implant_id, item_code=None, product_description=None):
+
+def update_implant(implant_id: int, item_code: str = None, product_description: str = None) -> Implants | None:
     """
-    Update item_code, product description(implant name) for a given implant.
+    Updates the item_code and product_description for a given implant.
+
+    Args:
+        implant_id (int): ID of the implant to update.
+        item_code (str, optional): New item code for the implant.
+        product_description (str, optional): New product description for the implant.
+
+    Returns:
+        Implants: The updated implant object, or None if not found or on error.
     """
     return update_implant_fields(
         implant_id,
@@ -354,26 +385,34 @@ def update_implant(implant_id, item_code=None, product_description=None):
     )
 
 
-def update_implant_status(implant_id, status):
+def update_implant_status(implant_id: int, status: int) -> Implants | None:
     """
-    Update the status field for a given implant.
+    Updates the status field for a given implant.
+
+    Args:
+        implant_id (int): ID of the implant to update.
+        status (int): New status value for the implant.
+
+    Returns:
+        Implants: The updated implant object, or None if not found or on error.
     """
     return update_implant_fields(implant_id, status=status)
 
 
-# Soft delete or (rejected)
-def delete_implant(implant_id):
+
+def delete_implant(implant_id: int) -> Implants | None:
     """
-    Mark an implant as deleted by updating its status to 3.
-    
+    Mark an implant as deleted by updating its status to STATUS_REJECTED.
+
     Args:
         implant_id (int): The ID of the implant to delete.
 
     Returns:
-        Implants: Updated implant object or None if not found.
+        Implants: The updated implant object, or None if not found or on error.
     """
     try:
         return update_implant_fields(implant_id, status=STATUS_REJECTED)
     except Exception as e:
         composition_crud_logger.error(f"Error marking implant as deleted: {e}")
         return None
+

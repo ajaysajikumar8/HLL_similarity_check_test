@@ -21,6 +21,24 @@ composition_crud_logger = logging.getLogger("composition_crud")
 
 @composition_bp.route("/similar-items/compare-price", methods=["POST"])
 def compare_price_similar_items_compositions_route():
+    """
+    API route to compare prices of similar items against a specified composition.
+
+    This route accepts a JSON payload containing a similar composition ID,
+    a composition object, and a similar item name. It compares the price
+    of the specified composition against the price cap for the similar item.
+
+    Request JSON Payload:
+    - similar_composition_id: str, required, the ID of the similar composition to compare against.
+    - composition: dict, required, the composition object containing relevant pricing details.
+    - similar_item: str, required, the name of the similar item to compare.
+
+    Returns:
+    - 200: JSON response containing the composition object with the price comparison result.
+    - 400: If the required fields are missing in the request payload.
+    - 500: If an error occurs during processing, including reading the composition or performing the price comparison.
+    """
+
     try:
         similar_composition_id = request.json.get("similar_composition_id")
         composition = request.json.get("composition")
@@ -64,6 +82,20 @@ def compare_price_similar_items_compositions_route():
 
 @composition_bp.route("/get-all-compositions/")
 def get_all_compositions_route():
+    """
+    API route to retrieve a paginated list of all compositions.
+
+    This route accepts optional query parameters for pagination and searching.
+    
+    Query Parameters:
+    - page: int, optional, the page number for pagination (default is 1).
+    - search_keyword: str, optional, a keyword to filter compositions by name (default is an empty string).
+
+    Returns:
+    - 200: JSON response containing a paginated list of compositions, including both approved and pending statuses.
+    - 500: If an error occurs while processing the request or retrieving data.
+    """
+
     # Retrieve query parameters from the request
     page = request.args.get("page", default=1, type=int)
     search_keyword = request.args.get("search_keyword", default="", type=str)
@@ -93,6 +125,23 @@ def get_all_compositions_route():
 
 @composition_bp.route("/add-new-composition", methods=["POST"])
 def add_new_composition_as_approver_route():
+    """
+    API route to add a new composition as an approver.
+
+    This route allows an approver to submit a new composition, including its name, content code, 
+    and dosage form.
+
+    Request Body:
+    - content_code: str, optional, the code associated with the composition (default is None).
+    - composition_name: str, required, the name of the new composition.
+    - dosage_form: str, optional, the form in which the composition is available (default is None).
+
+    Returns:
+    - 200: JSON response with a success message when the composition is added successfully.
+    - 400: JSON response with an error message if the composition name is missing.
+    - 500: JSON response with an error message if there was an error adding the composition.
+    """
+
     try:
         content_code = request.form.get("content_code", None)
         composition_name = request.form.get("composition_name")
@@ -120,6 +169,19 @@ def add_new_composition_as_approver_route():
 # Fetch a composition by ID
 @composition_bp.route("/get-composition/<int:composition_id>")
 def get_composition_by_id(composition_id):
+    """
+    API route to fetch a composition by its ID.
+
+    This route retrieves the details of a specific composition based on the provided composition ID.
+
+    Parameters:
+    - composition_id: int, required, the ID of the composition to be fetched.
+
+    Returns:
+    - 200: JSON response containing the composition details if found.
+    - 404: JSON response with an error message if the composition is not found.
+    """
+
     composition = get_composition(composition_id)
     if composition:
         composition_data = {
@@ -140,6 +202,19 @@ def get_composition_by_id(composition_id):
 
 @composition_bp.route("/update-composition/<int:composition_id>", methods=["PUT"])
 def update_composition_route(composition_id):
+    """
+    API route to retrieve a composition by its ID.
+
+    This route fetches the details of a specific composition based on the provided composition ID.
+
+    Parameters:
+    - composition_id: int, required, the unique identifier of the composition to retrieve.
+
+    Returns:
+    - 200: JSON response containing the composition details if found.
+    - 404: JSON response with an error message if the composition is not found.
+    """
+
     try:
         content_code = request.form.get("content_code", None)
         composition_name = request.form.get("composition_name", None)
@@ -166,6 +241,20 @@ def update_composition_route(composition_id):
 # Delete a composition (CRUD delete)
 @composition_bp.route("/delete-composition/<int:composition_id>", methods=["DELETE"])
 def delete_composition_route(composition_id):
+    """
+    API route to delete a composition by its ID.
+
+    This route allows the user to delete a specific composition from the database using its unique identifier.
+
+    Parameters:
+    - composition_id: int, required, the unique identifier of the composition to delete.
+
+    Returns:
+    - 200: JSON response with a success message if the composition is deleted successfully.
+    - 404: JSON response with an error message if no composition is found with the provided ID.
+    - 500: JSON response with an error message in case of an internal server error.
+    """
+
     try:
         deleted_composition = delete_composition(composition_id)
         if deleted_composition:
@@ -180,6 +269,23 @@ def delete_composition_route(composition_id):
 # Request a composition (status 0)
 @composition_bp.route("/request-composition", methods=["POST"])
 def request_composition():
+    """
+    API route to request a new composition.
+
+    This route allows users to submit a request for a new composition by providing the necessary details.
+    The new composition would have a status of 0
+
+    Parameters:
+    - content_code: str, optional, the content code associated with the composition.
+    - composition_name: str, required, the name of the composition being requested.
+    - dosage_form: str, optional, the dosage form of the composition.
+
+    Returns:
+    - 200: JSON response with a success message if the composition is requested successfully.
+    - 400: JSON response with an error message if the composition name is not provided.
+    - 500: JSON response with an error message in case of an internal server error.
+    """
+
     try:
         content_code = request.form.get("content_code", None)
         composition_name = request.form.get("composition_name")
@@ -207,8 +313,22 @@ def request_composition():
 
 
 # Approve a composition (status 1)
-@composition_bp.route("/approve-composition", methods=["PUT"]) #changed method from POST to PUT
+@composition_bp.route("/approve-composition", methods=["PUT"]) 
 def approve_composition():
+    """
+    API route to approve a composition.
+
+    This route allows an approver to change the status of a composition to approved (status 1).
+
+    Parameters:
+    - composition_id: int, required, the ID of the composition to be approved.
+
+    Returns:
+    - 200: JSON response with a success message if the composition is approved successfully.
+    - 400: JSON response with an error message if the composition ID is not provided.
+    - 500: JSON response with an error message if there is an issue approving the composition or if no composition is found.
+    """
+
     try:
         composition_id = request.json.get("composition_id")
 

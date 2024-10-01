@@ -43,9 +43,9 @@ def compare_price_similar_items_implants_route():
         product_implant = request.json.get("implant")
         similar_item = request.json.get("similar_item")
 
-        if not product_implant and not similar_item:
+        if not product_implant or not similar_item or not similar_implant_id:
             return (
-                jsonify({"error": "Implant object and similar Implant Id required"}),
+                jsonify({"error": "Implant object and similar Implant Name and its Id is required"}),
                 400,
             )
         try:

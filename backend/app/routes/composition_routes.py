@@ -44,11 +44,11 @@ def compare_price_similar_items_compositions_route():
         composition = request.json.get("composition")
         similar_item = request.json.get("similar_item")
 
-        if not composition and not similar_item:
+        if not composition or not similar_item or not similar_composition_id:
             return (
                 jsonify(
                     {
-                        "error": "composition object and similar composition name required"
+                        "error": "composition object and similar composition name and its id is required"
                     }
                 ),
                 400,

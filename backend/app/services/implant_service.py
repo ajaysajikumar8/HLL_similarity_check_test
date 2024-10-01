@@ -101,7 +101,6 @@ def match_price_cap_implant(implant_id, implant):
                 if df_variant == price_cap_result.variant.lower().strip():
                     best_match = price_cap_result
                     break  # Break on the first successful match
-
             if best_match:
                 original_price = float(best_match.price_cap)
                 price_diff = float(
@@ -109,10 +108,10 @@ def match_price_cap_implant(implant_id, implant):
                 )
                 status = "Below" if price_diff > 0 else "Above"
 
-                return {"price_diff": price_diff, "status": status}
+                return {"price": original_price, "price_diff": price_diff, "status": status}
             else:
                 return {
-                    "price": original_price,
+                    "price": None,
                     "price_diff": None,
                     "status": "No Match on Dosage or Packing Unit",
                 }

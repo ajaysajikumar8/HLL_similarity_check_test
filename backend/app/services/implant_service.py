@@ -3,18 +3,21 @@ from fuzzywuzzy import fuzz
 import re
 import logging
 from sqlalchemy import func, text
+from sqlalchemy.exc import SQLAlchemyError
 from ..models import Implants, PriceCapImplants
 from ..db import db
 from ..constants import STATUS_APPROVED, STATUS_PENDING, STATUS_REJECTED
 
 server_logger = logging.getLogger(__name__)
-composition_match_logger = logging.getLogger("composition_match")
-unmatched_compositions_logger = logging.getLogger("unmatched_compositions")
-rough_compositions_logger = logging.getLogger("rough_compositions")
+critical_logger = logging.getLogger("critical")
+composition_implant_match_logger = logging.getLogger("composition_implant_match")
+unmatched_implants_compositions_logger = logging.getLogger(
+    "unmatched_implants_compositions"
+)
+rough_compositions_implants_logger = logging.getLogger("rough_compositions_implants")
 parse_composition_logger = logging.getLogger("parse_composition")
 price_cap_logger = logging.getLogger("price_cap")
-composition_crud_logger = logging.getLogger("composition_crud")
-
+composition_implant_crud_logger = logging.getLogger("composition_implant_crud")
 
 def calculate_similarity(product_implant, db_product_description):
     """
@@ -36,7 +39,7 @@ def find_best_match(similar_items, product_implant):
 
     Args:
         similar_items (List): List of similar implants from the database.
-        product_implant (str): The product description (implant name) from the dataframe. 
+        product_implant (str): The product description (implant name) from the dataframe.
 
     Returns:
         Tuple: Best match and maximum similarity score.
@@ -46,6 +49,10 @@ def find_best_match(similar_items, product_implant):
 
     for res in similar_items:
         similarity = calculate_similarity(product_implant, res.product_description)
+        rough_compositions_implants_logger.info(
+            f"Striped User-Input: {product_implant}; DB Implant: {res.product_description} with similarity score: {similarity}"
+        )
+        rough_compositions_implants_logger.info(" ")
         if similarity > max_similarity:
             max_similarity = similarity
             best_match = res
@@ -71,6 +78,8 @@ def fetch_similar_implants(product_implant):
             .limit(20)
         )
         return query.all()
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         server_logger.error(f"Error fetching similar implants: {e}")
         return []
@@ -108,7 +117,11 @@ def match_price_cap_implant(implant_id, implant):
                 )
                 status = "Below" if price_diff > 0 else "Above"
 
-                return {"price": original_price, "price_diff": price_diff, "status": status}
+                return {
+                    "price": original_price,
+                    "price_diff": price_diff,
+                    "status": status,
+                }
             else:
                 return {
                     "price": None,
@@ -117,9 +130,15 @@ def match_price_cap_implant(implant_id, implant):
                 }
         else:
             return {"price": None, "price_diff": None, "status": "No Price Found"}
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         price_cap_logger.error(f"Error while matching the price: {e}")
-        return {"price": None, "price_diff": None, "status": "Error while fetching price"}
+        return {
+            "price": None,
+            "price_diff": None,
+            "status": "Error while fetching price",
+        }
 
 
 def match_single_implant(row):
@@ -158,8 +177,12 @@ def match_single_implant(row):
         )
         implant_id = best_match.id
         implant["price_comparison"] = match_price_cap_implant(implant_id, implant)
+        composition_implant_match_logger.info(
+            f"User-entered Implant: {implant['df_product_description_with_specification']}, Matched Implant: {best_match.product_description}, Match score: {max_similarity}"
+        )
         return implant, None
     else:
+        unmatched_implants_compositions_logger.info(f"Unmatched Implant: {implant['df_product_description_with_specification']}, Similarity percentage: {max_similarity if max_similarity is not None else 0}")
         similar_items_score = sorted(
             [
                 {
@@ -277,11 +300,13 @@ def get_all_implants(search_keyword="", limit=10, offset=0):
 
         # Execute the query and get the results
         result = db.session.execute(query).all()
-    
+
         # Construct the dictionary based on the fetched results
         implants_by_status = {row[0]: row[1] for row in result}
 
         return implants_by_status
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
 
     except Exception as e:
         logging.getLogger(__name__).error(
@@ -311,11 +336,13 @@ def add_implant(product_description, item_code=None, status=STATUS_PENDING):
         db.session.add(new_implant)
         db.session.commit()
         return new_implant
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         db.session.rollback()
-        composition_crud_logger.error(f"Error adding new Implant: {e}")
+        composition_implant_crud_logger.error(f"Error adding new Implant: {e}")
         return None
-    
+
 
 def get_implant(implant_id):
     """
@@ -329,11 +356,12 @@ def get_implant(implant_id):
     """
     try:
         return Implants.query.get(implant_id)
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         logging.getLogger(__name__).error(f"Error fetching Implant by ID: {e}")
         return None
 
-    
 
 def update_implant_fields(implant_id: int, **fields: dict) -> Implants | None:
     """
@@ -358,14 +386,17 @@ def update_implant_fields(implant_id: int, **fields: dict) -> Implants | None:
 
         db.session.commit()
         return implant
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         db.session.rollback()
-        composition_crud_logger.error(f"Error updating implant fields: {e}")
+        composition_implant_crud_logger.error(f"Error updating implant fields: {e}")
         return None
 
 
-
-def update_implant(implant_id: int, item_code: str = None, product_description: str = None) -> Implants | None:
+def update_implant(
+    implant_id: int, item_code: str = None, product_description: str = None
+) -> Implants | None:
     """
     Updates the item_code and product_description for a given implant.
 
@@ -398,7 +429,6 @@ def update_implant_status(implant_id: int, status: int) -> Implants | None:
     return update_implant_fields(implant_id, status=status)
 
 
-
 def delete_implant(implant_id: int) -> Implants | None:
     """
     Mark an implant as deleted by updating its status to STATUS_REJECTED.
@@ -412,6 +442,5 @@ def delete_implant(implant_id: int) -> Implants | None:
     try:
         return update_implant_fields(implant_id, status=STATUS_REJECTED)
     except Exception as e:
-        composition_crud_logger.error(f"Error marking implant as deleted: {e}")
+        composition_implant_crud_logger.error(f"Error marking implant as deleted: {e}")
         return None
-

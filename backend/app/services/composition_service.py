@@ -3,17 +3,19 @@ from fuzzywuzzy import fuzz
 import re
 import logging
 from sqlalchemy import func, text
+from sqlalchemy.exc import SQLAlchemyError
 from ..models import Compositions, PriceCapCompositions
 from ..db import db
 from ..constants import STATUS_APPROVED, STATUS_PENDING, STATUS_REJECTED
 
 server_logger = logging.getLogger(__name__)
-composition_match_logger = logging.getLogger("composition_match")
-unmatched_compositions_logger = logging.getLogger("unmatched_compositions")
-rough_compositions_logger = logging.getLogger("rough_compositions")
+critical_logger = logging.getLogger("critical")
+composition_implant_match_logger = logging.getLogger("composition_implant_match")
+unmatched_implants_compositions_logger = logging.getLogger("unmatched_implants_compositions")
+rough_compositions_implants_logger = logging.getLogger("rough_compositions_implants")
 parse_composition_logger = logging.getLogger("parse_composition")
 price_cap_logger = logging.getLogger("price_cap")
-composition_crud_logger = logging.getLogger("composition_crud")
+composition_implant_crud_logger = logging.getLogger("composition_implant_crud")
 
 
 def get_all_compositions(search_keyword="", limit=10, offset=0):
@@ -102,7 +104,8 @@ def get_all_compositions(search_keyword="", limit=10, offset=0):
         compositions_by_status = {row[0]: row[1] for row in result}
 
         return compositions_by_status
-
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         logging.getLogger(__name__).error(
             f"Error executing SQL query for compositions: {e}"
@@ -158,6 +161,8 @@ def preprocess_compositions_in_db(table_name: str):
         server_logger.info(
             f"Compositions in {table_name} have been preprocessed and stored in compositions_striped."
         )
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         db.session.rollback()
         server_logger.error(
@@ -258,6 +263,8 @@ def fetch_similar_compositions(striped_composition):
             .limit(20)
         )
         return query.all()
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         server_logger.error(f"Error fetching similar compositions: {e}")
         return []
@@ -293,10 +300,15 @@ def find_best_match(similar_items, striped_composition):
 
     for res in similar_items:
         similarity = calculate_similarity(striped_composition, res.compositions_striped)
-        if similarity > max_similarity and is_match(
+        rough_compositions_implants_logger.info(
+            f"Striped User-Input: {striped_composition}; DB Composition: {res.compositions_striped} with similarity score: {similarity}"
+        )
+        rough_compositions_implants_logger.info(" ")
+        if similarity > max_similarity: 
+            max_similarity = similarity
+        if is_match(
             striped_composition, res.compositions_striped
         ):
-            max_similarity = similarity
             best_match = res
 
     return best_match, max_similarity
@@ -315,6 +327,7 @@ def match_price_cap_composition(composition_id, composition):
         dict: Price comparison result.
     """
     try:
+
         price_cap_query = db.session.query(PriceCapCompositions).filter(
             PriceCapCompositions.composition_id == composition_id
         )
@@ -355,6 +368,8 @@ def match_price_cap_composition(composition_id, composition):
                 }
         else:
             return {"price": None, "price_diff": None, "status": "No Price Found"}
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         price_cap_logger.error(f"Error while matching the price: {e}")
         return {
@@ -393,15 +408,19 @@ def match_single_composition(row):
     striped_composition = composition["df_compositions"].replace(" ", "")
     similar_items = fetch_similar_compositions(striped_composition)
     best_match, max_similarity = find_best_match(similar_items, striped_composition)
-
     if best_match and max_similarity > 98:
         composition["df_compositions"] = best_match.compositions
         composition_id = best_match.id
         composition["price_comparison"] = match_price_cap_composition(
             composition_id, composition
         )
+        composition_implant_match_logger.info(
+            f"User-entered composition: {composition['df_compositions']}, Matched composition: {best_match.compositions}, Match score: {max_similarity}"
+        )
+
         return composition, None
     else:
+        unmatched_implants_compositions_logger.info(f"Unmatched composition: {composition['df_compositions']}, Similarity percentage: {max_similarity if max_similarity is not None else 0}")
         similar_items_score = sorted(
             [
                 {
@@ -481,9 +500,11 @@ def add_composition(
         db.session.add(new_composition)
         db.session.commit()
         return new_composition
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         db.session.rollback()
-        composition_crud_logger.error(f"Error adding new composition: {e}")
+        composition_implant_crud_logger.error(f"Error adding new composition: {e}")
         return None
 
 
@@ -499,8 +520,10 @@ def get_composition(composition_id: int) -> Compositions:
     """
     try:
         return Compositions.query.get(composition_id)
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error fetching composition by ID: {e}")
+        composition_implant_crud_logger.error(f"Error fetching composition by ID: {e}")
         return None
 
 
@@ -527,9 +550,11 @@ def update_composition_fields(composition_id: int, **fields) -> Compositions:
 
         db.session.commit()
         return composition
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         db.session.rollback()
-        composition_crud_logger.error(f"Error updating composition fields: {e}")
+        composition_implant_crud_logger.error(f"Error updating composition fields: {e}")
         return None
 
 
@@ -573,7 +598,6 @@ def update_composition_status(composition_id: int, status: str) -> Compositions:
     return update_composition_fields(composition_id, status=status)
 
 
-
 def delete_composition(composition_id: int) -> Compositions:
     """
     Mark a composition as deleted by updating its status to rejected.
@@ -587,9 +611,8 @@ def delete_composition(composition_id: int) -> Compositions:
     try:
         return update_composition_fields(composition_id, status=STATUS_REJECTED)
     except Exception as e:
-        composition_crud_logger.error(f"Error marking composition as deleted: {e}")
+        composition_implant_crud_logger.error(f"Error marking composition as deleted: {e}")
         return None
-
 
 
 def update_composition_id_in_price_cap() -> None:
@@ -600,16 +623,20 @@ def update_composition_id_in_price_cap() -> None:
     try:
         # Update PriceCapCompositions with matching composition_id
         db.session.query(PriceCapCompositions).filter(
-            PriceCapCompositions.compositions_striped == Compositions.compositions_striped,
-            PriceCapCompositions.composition_id.is_(None)  # Only update if composition_id is NULL
+            PriceCapCompositions.compositions_striped
+            == Compositions.compositions_striped,
+            PriceCapCompositions.composition_id.is_(
+                None
+            ),  # Only update if composition_id is NULL
         ).update(
             {PriceCapCompositions.composition_id: Compositions.id},
-            synchronize_session="fetch"  # Synchronize session to reflect changes
+            synchronize_session="fetch",  # Synchronize session to reflect changes
         )
 
         db.session.commit()
         server_logger.info("Successfully updated composition_id in PriceCap.")
+    except SQLAlchemyError as e:
+        critical_logger.critical(f"Critical database error: {e}", exc_info=True)
     except Exception as e:
         db.session.rollback()
         server_logger.error(f"Error updating composition_id in PriceCap: {e}")
-

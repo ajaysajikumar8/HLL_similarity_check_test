@@ -52,11 +52,11 @@ def match_file_api():
         if match_function:
             matched, unmatched = match_function(df)
         else:
-            logging.getLogger(__name__).error("Invalid file type")
-            return jsonify({"error": "Invalid file type"}), 400
+            logging.getLogger(__name__).error("Invalid file type, No Matching function found")
+            return jsonify({"error": "Invalid file type, Error performing string matching"}), 400
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error performing string matching: {e}")
-        return jsonify({"error": "Error performing string matching"}), 500
+        logging.getLogger(__name__).error(f"Invalid file type, Error performing string matching: {e}")
+        return jsonify({"error": f"Invalid file type, Error performing string matching"}), 500
 
     data = {
         "matched": matched,

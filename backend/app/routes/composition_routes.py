@@ -74,7 +74,7 @@ def compare_price_similar_items_compositions_route():
             json_error_data = json.dumps(error_data)
             return Response(json_error_data, mimetype="application/json")
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error : {e}")
+        logging.getLogger(__name__).error(f"Server Error : {e}")
         error_data = {"error": str(e)}
         json_error_data = json.dumps(error_data)
         return Response(json_error_data, mimetype="application/json")
@@ -86,7 +86,7 @@ def get_all_compositions_route():
     API route to retrieve a paginated list of all compositions.
 
     This route accepts optional query parameters for pagination and searching.
-    
+
     Query Parameters:
     - page: int, optional, the page number for pagination (default is 1).
     - search_keyword: str, optional, a keyword to filter compositions by name (default is an empty string).
@@ -109,8 +109,12 @@ def get_all_compositions_route():
         try:
             response = {
                 "compositions": {
-                    "approved": compositions.get(STATUS_APPROVED, {"compositions": [], "count": 0}),
-                    "pending": compositions.get(STATUS_PENDING, {"compositions": [], "count": 0}),
+                    "approved": compositions.get(
+                        STATUS_APPROVED, {"compositions": [], "count": 0}
+                    ),
+                    "pending": compositions.get(
+                        STATUS_PENDING, {"compositions": [], "count": 0}
+                    ),
                 }
             }
             return jsonify(response)
@@ -128,7 +132,7 @@ def add_new_composition_as_approver_route():
     """
     API route to add a new composition as an approver.
 
-    This route allows an approver to submit a new composition, including its name, content code, 
+    This route allows an approver to submit a new composition, including its name, content code,
     and dosage form.
 
     Request Body:
@@ -149,19 +153,26 @@ def add_new_composition_as_approver_route():
         status = STATUS_APPROVED
 
         if not composition_name:
-            composition_crud_logger.error(f"Composition name is required")
+            composition_crud_logger.error(
+                f"Composition name is required in the request as form data"
+            )
             return jsonify({"error": "Composition name is required"}), 400
 
         try:
             new_composition = add_composition(
-                composition_name, content_code, dosage_form, status
+                composition_name=composition_name,
+                content_code=content_code,
+                dosage_form=dosage_form,
+                status=status,
             )
             if new_composition:
+                # Add the Preprocessing for the DB Logic here
                 return jsonify({"message": "Composition added successfully"})
             else:
                 return jsonify({"error": "Error adding new composition"}), 500
         except Exception as e:
             composition_crud_logger.error(f"Composition Add Error: {e}")
+            return jsonify({"error": "Error Adding composition"}), 500
     except Exception as e:
         logging.getLogger(__name__).error(f"Error while adding composition: {e}")
 
@@ -181,7 +192,6 @@ def get_composition_by_id(composition_id):
     - 200: JSON response containing the composition details if found.
     - 404: JSON response with an error message if the composition is not found.
     """
-
     composition = get_composition(composition_id)
     if composition:
         composition_data = {
@@ -222,7 +232,10 @@ def update_composition_route(composition_id):
 
         try:
             updated_composition = update_composition(
-                composition_id, content_code, composition_name, dosage_form
+                composition_id=composition_id,
+                content_code=content_code,
+                composition_name=composition_name,
+                dosage_form=dosage_form,
             )
             if updated_composition:
                 return jsonify({"message": "Composition updated successfully"}), 200
@@ -233,6 +246,7 @@ def update_composition_route(composition_id):
                 return jsonify({"error": "No Composition found to update"}), 404
         except Exception as e:
             composition_crud_logger.error(f"Error updating the composition: {e}")
+            return jsonify({"error": "Error Updating the composition"}), 500
     except Exception as e:
         composition_crud_logger.error(f"Error while updating composition: {e}")
         return jsonify({"error": "Server error"}), 500
@@ -256,11 +270,11 @@ def delete_composition_route(composition_id):
     """
 
     try:
-        deleted_composition = delete_composition(composition_id)
+        deleted_composition = delete_composition(composition_id=composition_id)
         if deleted_composition:
-            return jsonify({"message": "Composition deleted successfully"})
+            return jsonify({"message": "Composition deleted successfully"}), 200
         else:
-            return jsonify({"error" : "No composition found with the provided id"})
+            return jsonify({"error": "No composition found with the provided id"}), 404
     except Exception as e:
         composition_crud_logger.error(f"Error while deleting composition: {e}")
         return jsonify({"error": "Error deleting composition"}), 500
@@ -291,13 +305,13 @@ def request_composition():
         composition_name = request.form.get("composition_name")
         dosage_form = request.form.get("dosage_form", None)
         if not composition_name:
-            return jsonify(
-                {"error": "Composition name is required"}
-            )
+            return jsonify({"error": "Composition name is required"})
 
         try:
             new_composition = add_composition(
-                composition_name, content_code, dosage_form
+                composition_name=composition_name,
+                content_code=content_code,
+                dosage_form=dosage_form,
             )
             if new_composition:
                 return jsonify(
@@ -313,7 +327,7 @@ def request_composition():
 
 
 # Approve a composition (status 1)
-@composition_bp.route("/approve-composition", methods=["PUT"]) 
+@composition_bp.route("/approve-composition", methods=["PUT"])
 def approve_composition():
     """
     API route to approve a composition.
@@ -336,14 +350,22 @@ def approve_composition():
             return jsonify({"error": "Composition ID is required"}), 400
 
         try:
-            updated_composition = update_composition_status(composition_id=composition_id, status=STATUS_APPROVED)
+            updated_composition = update_composition_status(
+                composition_id=composition_id, status=STATUS_APPROVED
+            )
 
             if updated_composition:
                 return jsonify({"message": "Composition approved", "status": 1})
             else:
-                return jsonify({"error": "Error approving composition, no composition found"}), 500
+                return (
+                    jsonify(
+                        {"error": "Error approving composition, no composition found"}
+                    ),
+                    500,
+                )
         except Exception as e:
             composition_crud_logger.error(f"Error approving composition: {e}")
+            return jsonify({"error": "Error Approving Compositions"})
 
     except Exception as e:
         composition_crud_logger.error(f"Error approving composition: {e}")

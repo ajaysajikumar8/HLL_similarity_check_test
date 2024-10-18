@@ -217,12 +217,21 @@ def match_implants(df):
     matched_implants = []
     unmatched_implants = []
 
+    # Separate counters for matched and unmatched indexes
+    matched_index = 1
+    unmatched_index = 1
+
+    # Iterate through the dataframe and match each implant
     for _, row in df.iterrows():
         matched, unmatched = match_single_implant(row)
         if matched:
+            matched["index"] = matched_index  # Assign unique matched index
             matched_implants.append(matched)
+            matched_index += 1  # Increment matched index
         else:
+            unmatched["index"] = unmatched_index  # Assign unique unmatched index
             unmatched_implants.append(unmatched)
+            unmatched_index += 1  # Increment unmatched index
 
     return matched_implants, unmatched_implants
 

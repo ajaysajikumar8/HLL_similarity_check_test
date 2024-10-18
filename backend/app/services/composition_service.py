@@ -463,6 +463,7 @@ def match_compositions(df):
     unmatched_compositions = []
 
     for _, row in df.iterrows():
+        # validation for the data happens here. 
         matched, unmatched = match_single_composition(row)
         if matched:
             matched_compositions.append(matched)

@@ -443,32 +443,41 @@ def match_single_composition(row):
 
 def match_compositions(df):
     """
-    Checks the compositions in the dataframe and checks if they match with the DB.
+    Checks the compositions in the dataframe and matches them with the DB.
 
     Args:
         df (pd.DataFrame): Data from the Excel sheet.
 
     Returns:
-        dict: API response containing matched and unmatched compositions.
+        dict: API response containing matched and unmatched compositions with separate indexes.
     """
     try:
         df = preprocess_dataframe(df)
     except Exception as e:
         return {"error": str(e)}
 
-    # ::: REMOVE LATER  when CRUD implemented for the tables
+    # ::: REMOVE LATER when CRUD implemented for the tables
     preprocess_compositions_in_db("Compositions")
 
     matched_compositions = []
     unmatched_compositions = []
 
+    # Separate counters for matched and unmatched indexes
+    matched_index = 1
+    unmatched_index = 1
+
+    # Iterate through the dataframe and match each composition
     for _, row in df.iterrows():
         # validation for the data happens here. 
         matched, unmatched = match_single_composition(row)
         if matched:
+            matched["index"] = matched_index 
             matched_compositions.append(matched)
+            matched_index += 1  # Increment matched index
         else:
+            unmatched["index"] = unmatched_index  
             unmatched_compositions.append(unmatched)
+            unmatched_index += 1 
 
     return matched_compositions, unmatched_compositions
 

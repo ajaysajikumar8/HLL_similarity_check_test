@@ -55,7 +55,7 @@ Here are the complete instructions for creating a new virtual environment, insta
    ```
 
 
-2. After activating the virtual environment, Move inside either backend or frontend folder:
+2. After activating the virtual environment, Move inside either backend or frontend folder (required only if using frontend for testing):
    
    ```bash
    ls backend

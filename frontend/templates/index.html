@@ -4,13 +4,19 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>File Upload</title>
+		<style>
+			.add-composition-container {
+				margin-top: 100px;
+			}
+		</style>
 	</head>
 	<body>
 		<div class="container">
 			<div><h1>Upload a file</h1></div>
 			<p>Note: Please write the compositions using "+" or "|".</p>
 			<p>
-				The System expects the molecules to be joined using "+" or "|". Also the excel file should have the extension of "xlsx"
+				The System expects the molecules to be joined using "+" or "|".
+				Also the excel file should have the extension of "xlsx"
 			</p>
 
 			<p>
@@ -34,6 +40,11 @@
 				</div>
 				<input type="submit" value="Upload" />
 			</form>
+
+			<div class="add-composition-container">
+				<p>Want to add a new composition ?</p>
+				<a href="/add_composition" target="_blank">Click here</a>
+			</div>
 		</div>
 	</body>
 </html>

@@ -29,6 +29,7 @@ def create_app():
     setup_logging("parse_composition.log", "parse_composition")
     setup_logging("price_cap.log", "price_cap")
     setup_logging("composition_implant_crud.log", "composition_implant_crud")
+    setup_logging("file_validation.log", "file_validation")
 
     # Register blueprints
     from .routes.composition_routes import composition_bp

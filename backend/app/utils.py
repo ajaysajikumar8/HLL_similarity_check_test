@@ -21,17 +21,26 @@ def setup_logging(log_file_name, logger_name, rotate_logs=True):
     log_file_path = os.path.join(logs_dir, log_file_name)
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.INFO)
+
+    ### FIX THIS CODE: LOGGER ISSUE
+
+    # if logger.hasHandlers():
+    #     for handler in logger.handlers:
+    #         handler.close()  # Ensure files are closed
+    #         logger.removeHandler(handler)
     
     formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(filename)s:%(lineno)d %(message)s")
 
-    if rotate_logs:
-        os.makedirs(archive_dir, exist_ok=True)
+    # if rotate_logs:
+    #     os.makedirs(archive_dir, exist_ok=True)
         
-        # Log rotation setup: Rotate weekly (on Monday), keeping up to 3 backups
-        handler = TimedRotatingFileHandler(log_file_path, when="W0", interval=1, backupCount=3)
-        handler.suffix = "%Y-%m-%d"  # Logs will be named with the year and week number
-    else:
-        handler = logging.FileHandler(log_file_path)
+    #     # Log rotation setup: Rotate weekly (on Monday), keeping up to 3 backups
+    #     handler = TimedRotatingFileHandler(log_file_path, when="W0", interval=1, backupCount=3)
+    #     handler.suffix = "%Y-%m-%d"  # Logs will be named with the year and week number
+    # else:
+    #     handler = logging.FileHandler(log_file_path)
+
+    handler = logging.FileHandler(log_file_path)
     
     handler.setFormatter(formatter)
     logger.addHandler(handler)

@@ -468,6 +468,7 @@ def match_compositions(df):
 
     # Iterate through the dataframe and match each composition
     for _, row in df.iterrows():
+        # validation for the data happens here. 
         matched, unmatched = match_single_composition(row)
         if matched:
             matched["index"] = matched_index 

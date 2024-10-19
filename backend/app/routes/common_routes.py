@@ -3,6 +3,7 @@ import pandas as pd
 import logging
 from app.services.composition_service import match_compositions
 from app.services.implant_service import match_implants
+from app.validation.file_validators import validate_file
 from ..utils import replace_nan_with_none
 import json
 
@@ -13,7 +14,7 @@ common_bp = Blueprint("common", __name__)
 def match_file_api():
     """
     API route to match file data with predefined compositions or implants based on file type.
-    
+
     This route handles the upload of an Excel file, reads its content into a pandas DataFrame,
     and performs string matching to determine matched and unmatched compositions or implants.
 
@@ -33,30 +34,39 @@ def match_file_api():
     if not file:
         logging.getLogger(__name__).error("File not uploaded")
         return jsonify({"error": "No file uploaded"}), 400
+    
+    df, errors = validate_file(file, file_type=file_type)
+    if errors:
+        return jsonify({"errors": errors}), 400
 
-    try:
-        df = pd.read_excel(file, engine="openpyxl")
-    except Exception as e:
-        logging.getLogger(__name__).error(f"Error reading Excel file: {e}")
-        return jsonify({"error": "Error reading Excel file"}), 500
-
-    file_type_to_function = {
+    file_type_to_match_function = {
         1: match_compositions,  # Normal Price Bid File
         2: match_implants,  # Implant Price Bid File
     }
 
     try:
-        # Retrieve the function based on the file_type
-        match_function = file_type_to_function.get(file_type)
+        match_function = file_type_to_match_function.get(file_type)
 
         if match_function:
             matched, unmatched = match_function(df)
         else:
-            logging.getLogger(__name__).error("Invalid file type, No Matching function found")
-            return jsonify({"error": "Invalid file type, Error performing string matching"}), 400
+            logging.getLogger(__name__).error(
+                "Invalid file type, No Matching function found"
+            )
+            return (
+                jsonify(
+                    {"error": "Invalid file type, Error performing string matching"}
+                ),
+                400,
+            )
     except Exception as e:
-        logging.getLogger(__name__).error(f"Invalid file type, Error performing string matching: {e}")
-        return jsonify({"error": f"Invalid file type, Error performing string matching"}), 500
+        logging.getLogger(__name__).error(
+            f"Invalid file type, Error performing string matching: {e}"
+        )
+        return (
+            jsonify({"error": f"Invalid file type, Error performing string matching"}),
+            500,
+        )
 
     data = {
         "matched": matched,

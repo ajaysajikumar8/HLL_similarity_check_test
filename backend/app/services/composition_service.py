@@ -4,6 +4,7 @@ import re
 import logging
 from sqlalchemy import func, text
 from sqlalchemy.exc import SQLAlchemyError
+from .helpers import calculate_margin_from_df
 from ..models import Compositions, PriceCapCompositions
 from ..db import db
 from ..constants import STATUS_APPROVED, STATUS_PENDING, STATUS_REJECTED
@@ -16,6 +17,7 @@ rough_compositions_implants_logger = logging.getLogger("rough_compositions_impla
 parse_composition_logger = logging.getLogger("parse_composition")
 price_cap_logger = logging.getLogger("price_cap")
 composition_implant_crud_logger = logging.getLogger("composition_implant_crud")
+
 
 
 def get_all_compositions(search_keyword="", limit=10, offset=0):
@@ -402,9 +404,11 @@ def match_single_composition(row):
         "df_unit_rate_to_hll_excl_of_tax": row["unit_rate_to_hll_excl_of_tax"],
         "df_unit_rate_to_hll_incl_of_tax": row["unit_rate_to_hll_incl_of_tax"],
         "df_hsn_code": row["hsn_code"],
-        "df_margin_percent_incl_of_tax": row["margin"],
+        "df_margin_percent_incl_of_tax": None,
     }
 
+    
+    composition["df_margin_percent_incl_of_tax"] = calculate_margin_from_df(composition)
     striped_composition = composition["df_compositions"].replace(" ", "")
     similar_items = fetch_similar_compositions(striped_composition)
     best_match, max_similarity = find_best_match(similar_items, striped_composition)

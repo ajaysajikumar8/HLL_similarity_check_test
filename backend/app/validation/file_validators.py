@@ -97,6 +97,7 @@ def validate_file(file, file_type: int):
     if nan_errors:
         errors.extend(nan_errors)
         file_validator_logger.error("NaN value issues: " + ', '.join(nan_errors))
+        return None, errors
 
     # Validate rows
     row_errors = validate_rows(df, schema)

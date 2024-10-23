@@ -31,7 +31,7 @@ def get_required_columns(file_type: int):
             "mrp_incl_of_tax": {"type": "float", "min": 0, "nullable": False, "required": True, "empty": False},
             "unit_rate_to_hll_excl_of_tax": {"type": "float", "min": 0, "nullable": False, "required": True, "empty": False},
             "unit_rate_to_hll_incl_of_tax": {"type": "float", "min": 0, "nullable": False, "required": True, "empty": False},
-            "hsn_code": { "nullable": False, "required": True, "empty": False},
+            "hsn_code": {"type": "integer", "nullable": False, "required": True, "empty": False},
         }
 
     elif file_type == 2:
@@ -45,7 +45,7 @@ def get_required_columns(file_type: int):
             "mrp_incl_of_tax": {"type": "float", "min": 0, "nullable": False, "required": True, "empty": False},
             "unit_rate_to_hll_excl_of_tax": {"type": "float", "min": 0, "nullable": False, "required": True, "empty": False},
             "unit_rate_to_hll_incl_of_tax": {"type": "float", "min": 0, "nullable": False, "required": True, "empty": False},
-            "hsn_code": {"nullable": False, "required": True, "empty": False},
+            "hsn_code": {"type": "integer", "nullable": False, "required": True, "empty": False},
         }
     else:
         return {}
